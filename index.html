@@ -1603,7 +1603,7 @@ function pageImage(strokes, idx){
 const docsEl = document.createElement('div'); docsEl.id = 'docs';
 docsEl.innerHTML = `<div class="card"><div class="hd"><b>원고함</b><span class="kind"></span><button class="x" aria-label="닫기">닫기</button></div>
   <div class="row"><input id="docTitle" maxlength="30" placeholder="원고 이름"><button id="docSave" class="pri">이 원고 저장</button></div>
-  <div class="row"><button id="docNew">새 원고 쓰기</button><button id="docPng">지금 장을 그림으로</button><button id="docPrint">인쇄</button><label class="chk"><input type="checkbox" id="pngDate"> 날짜 넣기</label></div>
+  <div class="row"><button id="docNew">새 원고 쓰기</button><button id="docPdf" class="pri">모든 장을 PDF로</button><button id="docPng">지금 장만 그림으로</button><button id="docPrint">모든 장 인쇄</button><label class="chk"><input type="checkbox" id="pngDate"> 날짜 넣기</label></div>
   <div class="list"></div></div>`;
 document.body.appendChild(docsEl);
 function openDocs(){ renderDocs(); docsEl.classList.add('show'); }
@@ -1669,7 +1669,8 @@ docsEl.querySelector('#docNew').onclick = () => {
 docsEl.querySelector('#pngDate').checked = store.get('pngDate', false);
 docsEl.querySelector('#pngDate').onchange = e => store.set('pngDate', e.target.checked);
 docsEl.querySelector('#docPng').onclick = () => { closeDocs(); exportPNG(docsEl.querySelector('#pngDate').checked); };
-docsEl.querySelector('#docPrint').onclick = () => { closeDocs(); exportPNG(docsEl.querySelector('#pngDate').checked, true); };
+docsEl.querySelector('#docPrint').onclick = () => { closeDocs(); printBook(docsEl.querySelector('#pngDate').checked); };
+docsEl.querySelector('#docPdf').onclick = () => { closeDocs(); exportPDF(docsEl.querySelector('#pngDate').checked); };
 // 종이 뒷면: 앞면 글씨가 거울처럼 아주 흐리게 비친다
 function backImage(front){
   const c = document.createElement('canvas'); c.width = front.width; c.height = front.height;
@@ -2105,33 +2106,30 @@ $('#sound').addEventListener('click', () => {
   ensureAudio(); setSoundUI();
   toast('연필 소리 ' + ['끔', '작게', '보통'][state.vol]);
 });
-function exportPNG(withDate, print){
+function stampDate(g, d){   // 저장·인쇄하는 그림에만 날짜를 찍는다(종이에는 없다). 장 번호 아래 오른쪽 위
+  g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(200,76,58,.85)';
+  g.font = `${13 * DPR}px "Nanum Myeongjo","Noto Serif KR","Batang",serif`; g.textAlign = 'right'; g.textBaseline = 'middle';
+  if (L.nb) {   // 받아쓰기 공책: 예전에 「__월 __일」이 있던 그 자리에 「__년 __월 __일」로
+    const D = DPR, right = (L.gx + L.gridW) * D, base = (L.m + 22) * D;
+    g.textBaseline = 'alphabetic'; g.strokeStyle = 'rgba(200,76,58,.85)'; g.lineWidth = .9 * D;
+    g.fillText('일', right, base); g.fillText('월', right - 62 * D, base); g.fillText('년', right - 124 * D, base);
+    g.beginPath(); g.moveTo(right - 54 * D, base + 3 * D); g.lineTo(right - 18 * D, base + 3 * D);
+    g.moveTo(right - 116 * D, base + 3 * D); g.lineTo(right - 80 * D, base + 3 * D);
+    g.moveTo(right - 194 * D, base + 3 * D); g.lineTo(right - 142 * D, base + 3 * D); g.stroke();
+    g.fillStyle = 'rgba(60,55,50,.9)'; g.font = `${15 * D}px "Nanum Myeongjo","Noto Serif KR","Batang",serif`; g.textAlign = 'center';
+    g.fillText(String(d.getFullYear()), right - 168 * D, base); g.fillText(String(d.getMonth() + 1), right - 98 * D, base); g.fillText(String(d.getDate()), right - 36 * D, base);
+  } else g.fillText(`${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`, (L.w - 16) * DPR, (Math.max(14, Math.min(22, (L.gy || 30) * .45)) + 18) * DPR);
+  g.restore();
+}
+function exportPNG(withDate){
   const c = document.createElement('canvas'); c.width = paperC.width; c.height = paperC.height;
   const g = c.getContext('2d');
   g.drawImage(paperC, 0, 0);
   g.globalCompositeOperation = 'multiply'; g.drawImage(inkC, 0, 0);
   const d = new Date(), z = n => String(n).padStart(2, '0');
-  if (withDate) {   // 저장하는 그림에만 날짜를 찍는다(종이에는 없다). 장 번호 아래 오른쪽 위
-    g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(200,76,58,.85)';
-    g.font = `${13 * DPR}px "Nanum Myeongjo","Noto Serif KR","Batang",serif`; g.textAlign = 'right'; g.textBaseline = 'middle';
-    if (L.nb) {   // 받아쓰기 공책: 예전에 「__월 __일」이 있던 그 자리에 「__년 __월 __일」로
-      const D = DPR, right = (L.gx + L.gridW) * D, base = (L.m + 22) * D;
-      g.textBaseline = 'alphabetic'; g.strokeStyle = 'rgba(200,76,58,.85)'; g.lineWidth = .9 * D;
-      g.fillText('일', right, base); g.fillText('월', right - 62 * D, base); g.fillText('년', right - 124 * D, base);
-      g.beginPath(); g.moveTo(right - 54 * D, base + 3 * D); g.lineTo(right - 18 * D, base + 3 * D);
-      g.moveTo(right - 116 * D, base + 3 * D); g.lineTo(right - 80 * D, base + 3 * D);
-      g.moveTo(right - 194 * D, base + 3 * D); g.lineTo(right - 142 * D, base + 3 * D); g.stroke();
-      g.fillStyle = 'rgba(60,55,50,.9)'; g.font = `${15 * D}px "Nanum Myeongjo","Noto Serif KR","Batang",serif`; g.textAlign = 'center';
-      g.fillText(String(d.getFullYear()), right - 168 * D, base); g.fillText(String(d.getMonth() + 1), right - 98 * D, base); g.fillText(String(d.getDate()), right - 36 * D, base);
-    } else g.fillText(`${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`, (L.w - 16) * DPR, (Math.max(14, Math.min(22, (L.gy || 30) * .45)) + 18) * DPR);
-  }
+  if (withDate) stampDate(g, d);
   const name = `${state.mode === 'notebook' ? '공책' : '원고지'}_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.png`;
-  if (print) {   // 인쇄: 한 장을 종이에 꽉 차게
-    const url = c.toDataURL('image/png'), w = window.open('', '_blank');
-    if (!w) { toast('인쇄 창이 막혔어요. 팝업을 허용해 주세요'); return; }
-    w.document.write(`<!doctype html><title>인쇄</title><style>@page{margin:10mm}html,body{margin:0}img{width:100%;height:auto}</style><img src="${url}" onload="setTimeout(()=>{print();},200)">`); w.document.close();
-    return;
-  }
   c.toBlob(b => {
     if (!b) return;
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name;
@@ -2139,6 +2137,76 @@ function exportPNG(withDate, print){
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     toast('그림 파일로 저장했어요');
   }, 'image/png');
+}
+/* 원고 전체(모든 장)를 한 장씩 그림으로 — PDF 저장·인쇄에 쓴다 */
+async function bookPages(withDate, kind){
+  const doc = (bookOn() && Book.ready) ? curBook() : null, n = doc ? doc.pages.length : 1, out = [], d = new Date();
+  if (doc) bookSave();
+  for (let i = 0; i < n; i++) {
+    if (n > 3) toast(`${kind} 만드는 중… ${i + 1} / ${n}장`);
+    let c = (!doc || i === doc.cur) ? pageImage(null) : pageImage(doc.pages[i].strokes, i);
+    if (withDate) stampDate(c.getContext('2d'), d);
+    if (c.width > 2400) {   // 너무 큰 화면은 줄여서(파일이 가볍고, 인쇄 품질은 충분)
+      const k = 2400 / c.width, s = document.createElement('canvas'); s.width = 2400; s.height = Math.round(c.height * k);
+      const sg = s.getContext('2d'); sg.fillStyle = '#fff'; sg.fillRect(0, 0, s.width, s.height); sg.drawImage(c, 0, 0, s.width, s.height); c = s;
+    }
+    const b = await new Promise(r => c.toBlob(r, 'image/jpeg', .9));
+    out.push({ w: c.width, h: c.height, blob: b });
+    await new Promise(r => setTimeout(r, 0));   // 화면이 멈추지 않게 한 장마다 숨 돌리기
+  }
+  return { doc, pages: out, d };
+}
+// 따로 프로그램 없이 PDF를 직접 짠다: 한 장 = PDF 한 쪽(A4, 종이 방향에 맞춰 가로·세로)
+function makePDF(imgs){
+  const enc = new TextEncoder(), parts = [], offs = []; let len = 0;
+  const push = x => { if (typeof x === 'string') x = enc.encode(x); parts.push(x); len += x.length; };
+  const obj = (i, ...body) => { offs[i] = len; push(`${i} 0 obj\n`); body.forEach(push); push('\nendobj\n'); };
+  push('%PDF-1.4\n%âãÏÓ\n');
+  const N = imgs.length, total = 3 + N * 3;
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, `<< /Type /Pages /Kids [${imgs.map((_, i) => `${3 + i * 3} 0 R`).join(' ')}] /Count ${N} >>`);
+  imgs.forEach((m, i) => {
+    const p = 3 + i * 3, land = m.w >= m.h, PW = land ? 842 : 595, PH = land ? 595 : 842, M = 20;
+    const k = Math.min((PW - 2 * M) / m.w, (PH - 2 * M) / m.h), w = m.w * k, h = m.h * k;
+    const cs = `q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${((PW - w) / 2).toFixed(2)} ${((PH - h) / 2).toFixed(2)} cm /Im0 Do Q`;
+    obj(p, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] /Resources << /XObject << /Im0 ${p + 2} 0 R >> >> /Contents ${p + 1} 0 R >>`);
+    obj(p + 1, `<< /Length ${cs.length} >>\nstream\n`, cs, '\nendstream');
+    obj(p + 2, `<< /Type /XObject /Subtype /Image /Width ${m.w} /Height ${m.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${m.data.length} >>\nstream\n`, m.data, '\nendstream');
+  });
+  const xref = len; let x = `xref\n0 ${total}\n0000000000 65535 f \n`;
+  for (let i = 1; i < total; i++) x += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  push(x + `trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+function fileStem(doc, d){
+  const z = n => String(n).padStart(2, '0'), kind = state.mode === 'notebook' ? '공책' : '원고지';
+  const t = doc ? docTitle(doc).replace(/[\\/:*?"<>|]/g, '').trim() : '';
+  return `${kind}${t ? '_' + t : ''}_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}`;
+}
+async function exportPDF(withDate){
+  if (exportPDF.busy) return; exportPDF.busy = true;
+  try {
+    const { doc, pages, d } = await bookPages(withDate, 'PDF');
+    for (const m of pages) m.data = new Uint8Array(await m.blob.arrayBuffer());
+    const blob = makePDF(pages), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = fileStem(doc, d) + '.pdf';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast(`PDF로 저장했어요 · ${pages.length}장`);
+  } catch (e) { toast('PDF를 만들지 못했어요'); console.error(e); }
+  finally { exportPDF.busy = false; }
+}
+async function printBook(withDate){   // 인쇄: 원고의 모든 장을 한 장씩 종이에
+  const w = window.open('', '_blank');   // 팝업 차단을 피하려고 누르자마자 연다
+  if (!w) { toast('인쇄 창이 막혔어요. 팝업을 허용해 주세요'); return; }
+  w.document.write('<!doctype html><title>인쇄 준비 중</title><p style="font:16px sans-serif;padding:24px">인쇄할 장을 준비하고 있어요…</p>');
+  const { pages } = await bookPages(withDate, '인쇄');
+  const urls = pages.map(m => URL.createObjectURL(m.blob)), land = pages[0].w >= pages[0].h;
+  w.document.open();
+  w.document.write(`<!doctype html><title>인쇄</title><style>@page{size:A4 ${land ? 'landscape' : 'portrait'};margin:8mm}html,body{margin:0}
+    .pg{page-break-after:always;break-after:page;height:calc(100vh - 1px);display:flex;align-items:center;justify-content:center}.pg:last-child{page-break-after:auto;break-after:auto}
+    img{max-width:100%;max-height:100%}</style>${urls.map(u => `<div class="pg"><img src="${u}"></div>`).join('')}
+    <script>let n=${urls.length};document.querySelectorAll('img').forEach(i=>{if(i.complete)n--;else i.onload=i.onerror=()=>{if(--n===0)setTimeout(print,200)}});if(n===0)setTimeout(print,200);<\/script>`);
+  w.document.close();
 }
 $('#save').addEventListener('click', () => (bookOn() && Book.ready) ? openDocs() : exportPNG(store.get('pngDate', false)));
 document.addEventListener('visibilitychange', () => {
