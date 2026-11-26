@@ -3136,9 +3136,16 @@ function cellsOf(st){
 function queueCells(cells){
   if (app.screen !== 'dict' || D.graded) return;
   cells.forEach(k => pending.add(k));
+  // 받아쓰기 중에는 글자를 읽지 않는다. 마지막 줄을 다 쓰면 그때 한꺼번에 읽어 보여 준다
+  if (!D.recOpen) { const last = D.items.length - 1; if (![...cells].some(k => +k.split(',')[0] === last)) return; }
   clearTimeout(recT); recT = setTimeout(recWhenIdle, 800);
 }
-function recWhenIdle(){ if (active) { recT = setTimeout(recWhenIdle, 400); return; } flushRecognition(); }
+function lastRowDone(){
+  const r = D.items.length - 1, t = D.items[r][0]; let n = 0, w = 0;
+  [...t].forEach((ch, c) => { if (ch === ' ' || PUNCT.includes(ch) || c >= L.cols) return; n++; if (binarize(cellAlpha(r, c))) w++; });
+  return n > 0 && w / n >= .85;
+}
+function recWhenIdle(){ if (active) { recT = setTimeout(recWhenIdle, 400); return; } if (!D.recOpen) { if (!lastRowDone()) return; D.recOpen = true; } flushRecognition(); }
 const penIdle = () => new Promise(res => { const f = () => active ? setTimeout(f, 250) : res(); f(); });
 let flushing = null, recGen = 0;
 function flushRecognition(){
@@ -3291,7 +3298,7 @@ function startDictation(stage, items){
   setTimeout(() => HNW.start(), 300);
   closeResult();
   setScreen('dict');
-  D.stage = stage; D.graded = false; D.cur = 0; D.results = [];
+  D.stage = stage; D.graded = false; D.cur = 0; D.results = []; D.recOpen = false;
   state.mode = 'notebook';
   app.title = D.exam ? `시험 · ${stage.id}단계 · 번호 ${D.exam}` : `받아쓰기 · ${stage.title}`;
   // 화면에 들어가는 줄 수만큼 문항을 낸다(3~6문항)
