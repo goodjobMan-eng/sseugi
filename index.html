@@ -481,7 +481,7 @@ function applyLayout(){
   computeLayout();
   const ci = document.getElementById('cellInfo'); if (ci) ci.textContent = `한 줄 ${L.cols}칸`;
   Object.assign(sheet.style, { left: L.left + 'px', top: L.top + 'px', width: L.w + 'px', height: L.h + 'px' });
-  for (const c of [paperC, dentC, inkC, fxC, $('#mark'), ...(typeof coverC !== 'undefined' ? [coverC, penC, redC] : [])]) { c.width = Math.round(L.w * DPR); c.height = Math.round(L.h * DPR); }
+  for (const c of [paperC, dentC, inkC, fxC, $('#mark'), ...(typeof coverC !== 'undefined' ? [coverC, penC, redC, tapeM] : [])]) { c.width = Math.round(L.w * DPR); c.height = Math.round(L.h * DPR); }
   drawPaper();
   redrawInk();
   renderFx();
@@ -580,9 +580,10 @@ const dctx = dentC.getContext('2d');
 // 층을 나눈다: 지우개는 연필 층만 지운다. 수정테이프·수정액은 그 아래 모든 층을 덮고(지우고) 하얀 덧댐 층에 칠한다
 const mkLayer = id => { const c = document.createElement('canvas'); c.id = id; inkC.insertAdjacentElement('beforebegin', c); return c; };
 const coverC = mkLayer('cover'), penC = mkLayer('pen'), redC = mkLayer('red');
-const LAY = { g: ictx, p: penC.getContext('2d'), r: redC.getContext('2d'), c: coverC.getContext('2d') };
+const tapeM = document.createElement('canvas');   // 수정테이프가 붙은 자리(보이지 않음): 연필이 미끄러지고, 세게 누르면 벗겨진다
+const LAY = { g: ictx, p: penC.getContext('2d'), r: redC.getContext('2d'), c: coverC.getContext('2d'), t: tapeM.getContext('2d', { willReadFrequently: true }) };
 const LAYC = { g: inkC, p: penC, r: redC, c: coverC };
-function newLayers(w, h){ const o = {}, oc = {}; for (const k of ['g', 'p', 'r', 'c']) { const c = document.createElement('canvas'); c.width = w; c.height = h; oc[k] = c; o[k] = c.getContext('2d'); } return { ctx: o, cv: oc }; }
+function newLayers(w, h){ const o = {}, oc = {}; for (const k of ['g', 'p', 'r', 'c', 't']) { const c = document.createElement('canvas'); c.width = w; c.height = h; oc[k] = c; o[k] = c.getContext('2d', k === 't' ? { willReadFrequently: true } : undefined); } return { ctx: o, cv: oc }; }
 // 종이 위에 글씨 층을 겹친다(저장·인쇄·넘기는 종이 그림)
 function compositeInk(g, cv){
   g.save(); g.globalCompositeOperation = 'source-over';
@@ -600,8 +601,10 @@ const ERASERS = {
   kkokji: { name: '연필 뒤 지우개', r: .6, clean: .78, rate: .6, len: .55, w: .75, cols: [[222, 96, 90], [192, 74, 72]], tone: 1.25, vol: .8, body: '#d9443e' },   // 쇠고리에 물린 빨간 꼭지
   sand: { name: '모래 지우개', r: .85, clean: .97, rate: 1.4, len: .3, w: .7, cols: [[150, 162, 180], [118, 126, 140]], tone: 1.6, vol: 1.1, grit: true, body: '#9fb4d6', body2: '#e0a3a0' },
   // 덮는 것: 연필·펜·색연필 모두 하얗게 덮는다(지우는 게 아니라 덧댐). 그 위에 다시 쓸 수 있다
-  tape: { name: '수정테이프', cover: 'tape', w: .46, r: 2.4, fill: '#fcfcfa', rate: 1e-9, tone: 1.7, vol: .6, body: '#5aa0d8' },
-  fluid: { name: '수정액', cover: 'fluid', w: .15, r: 1.6, fill: '#fbfbf7', rate: 1e-9, tone: 1.2, vol: .35, body: '#f4f4f1' },
+  tape: { name: '수정테이프', cover: 'tape', w: .5, r: 2.6,   // 폭 5mm(원고지 한 칸 10mm 기준)
+  fill: '#fcfcfa', rate: 1e-9, tone: 1.7, vol: .6, body: '#5aa0d8' },
+  fluid: { name: '수정액', cover: 'fluid', w: .05, r: .55,   // 촉 1mm
+  fill: '#fbfbf7', rate: 1e-9, tone: 1.2, vol: .35, body: '#f4f4f1' },
   scent: { name: '향기 지우개', r: 1.15, clean: .82, rate: .9, len: 1.1, w: 1.2, cols: [[250, 214, 120], [246, 190, 206], [180, 220, 200]], tone: .9, vol: .9, body: '#f7c9d6' }
 };
 const erOf = k => ERASERS[k] || ERASERS.white;
@@ -650,7 +653,7 @@ class Stroke {
   }
   radius(P){
     const T = this.T;
-    if (!T && this.E && this.E.cover) return L.s * DPR * this.E.w * (this.E.cover === 'tape' ? .5 : (.75 + .45 * P.p));
+    if (!T && this.E && this.E.cover) return L.s * DPR * this.E.w * (this.E.cover === 'tape' ? .5 : (.9 + .2 * P.p));
     if (!T) return L.eraserR * DPR * (this.E || ERASERS.white).r * (.82 + .3 * P.p);
     if (T.kind === 'graphite') return L.penR * DPR * T.r * (.62 + .5 * P.p) * (T.fixed ? 1 + .25 * P.t : (1 + 2.1 * P.t) * (1 + .75 * this.blunt));  // 뭉툭해지면 굵고 흐려진다
     if (T.kind === 'ball') return L.penR * DPR * T.r * (.88 + .22 * P.p);
@@ -665,7 +668,8 @@ class Stroke {
     const r0 = this.radius(P), sp = this.spacing(r0);
     const overlap = Math.max(1, 2 * r0 / sp);
     if (T && T.kind === 'graphite') {
-      const cover = (T.lo + T.hi * Math.pow(P.p, 1.2)) * (1 - .55 * P.t) * (1 - .25 * this.blunt);
+      const sl = this.slip(P); if (sl < 0) return sp;
+      const cover = (T.lo + T.hi * Math.pow(P.p, 1.2)) * (1 - .55 * P.t) * (1 - .25 * this.blunt) * sl;
       const a = 1 - Math.pow(1 - cover, 1 / overlap);
       const r = r0 * (.9 + .2 * rng());
       g.globalAlpha = a;
@@ -683,7 +687,8 @@ class Stroke {
     } else if (T && T.kind === 'wax') {
       // 종이말이 색연필: 굵고 무른 밀랍 심. 결 무늬(패턴)로 사이가 비고, 세게 누르면 골짜기까지 메워진다.
       // 가장자리엔 밀랍 부스러기가 점점이(fabric-brushes의 Crayon 붓처럼 폭 안에 작은 점을 흩뿌림)
-      const cover = .62 + .36 * Math.pow(P.p, 1.1);
+      const sl = this.slip(P); if (sl < 0) return sp;
+      const cover = (.62 + .36 * Math.pow(P.p, 1.1)) * sl;
       g.globalAlpha = 1 - Math.pow(1 - cover, 1 / overlap);
       g.beginPath(); g.arc(P.x, P.y, r0 * (.94 + .1 * rng()), 0, 6.2832); g.fill();
       const n = 1 + (rng() * 3 | 0);
@@ -741,11 +746,54 @@ class Stroke {
     if (E.cover === 'tape' && this.dir === undefined) return sp;   // 방향을 알기 전엔 붙이지 않는다(시작점에 가는 띠가 튀어나오지 않게)
     const hole = shape(pad), fillP = shape(0);
     for (const x of new Set([g, p, r])) if (x) x.fill(hole);   // 아래 글씨를 덮는다
+    const t = this.lay.t;
+    if (t) { t.save(); t.globalCompositeOperation = E.cover === 'tape' ? 'source-over' : 'destination-out'; t.fillStyle = '#000'; t.fill(fillP); t.restore(); t._dirty = true; }
     if (c) {
       c.fill(fillP);
+      if (E.cover === 'tape' && this.v != null) {   // 천천히 끌면 테이프가 밀려 가로 주름이 잡힌다(그늘 선 + 바로 옆 밝은 선)
+        const slow = clamp((.28 - this.v) / .22, 0, 1);
+        if (slow > 0 && rng() < .05 * slow) {
+          const d0 = this.dir || 0, a = d0 + (rng() - .5) * .5, back = sp * 1.05 + DPR;
+          const bx = P.x - Math.cos(d0) * back, by = P.y - Math.sin(d0) * back;
+          const nx = -Math.sin(a), ny = Math.cos(a), tx = Math.cos(a), ty = Math.sin(a), hw = r0 * .97, bend = (rng() - .5) * r0 * .3;
+          const crease = (o, col, lw) => { c.strokeStyle = col; c.lineWidth = lw * DPR; c.beginPath(); c.moveTo(bx - nx * hw + tx * o, by - ny * hw + ty * o); c.quadraticCurveTo(bx + tx * (bend + o), by + ty * (bend + o), bx + nx * hw + tx * o, by + ny * hw + ty * o); c.stroke(); };
+          c.save(); c.lineCap = 'round';
+          crease(0, `rgba(110,100,85,${(.07 + .1 * slow).toFixed(3)})`, .65);
+          crease(-.9 * DPR, 'rgba(255,255,255,.95)', .6);
+          c.restore();
+        }
+      }
       if (E.cover === 'fluid' && rng() < .12) { c.globalAlpha = .06; c.fillStyle = '#8a8478'; c.beginPath(); c.arc(P.x + (rng() - .5) * r0, P.y + (rng() - .5) * r0, r0 * .25, 0, 6.2832); c.fill(); c.globalAlpha = 1; c.fillStyle = E.fill; }   // 마르며 생기는 옅은 결
     }
     return sp;
+  }
+  onTape(P){
+    const m = this.lay.t; if (!m) return false;
+    const cv = m.canvas;
+    if (m._dirty !== false) { m._md = m.getImageData(0, 0, cv.width, cv.height).data; m._dirty = false; }
+    const x = P.x | 0, y = P.y | 0;
+    return x >= 0 && y >= 0 && x < cv.width && y < cv.height && m._md[(y * cv.width + x) * 4 + 3] > 128;
+  }
+  slip(P){   // 테이프 위면 묻는 양을 줄이고(0~1), 너무 세게 누르면 벗긴다. 미끄러져 아예 안 묻는 곳은 -1
+    if (!this.onTape(P)) return 1;
+    const rng = this.rng;
+    if (this.rp && P.p > .9 && (this.peels || 0) < 2 && rng() < .03) this.peel(P);
+    return rng() < .35 ? -1 : .35;
+  }
+  peel(P){   // 테이프가 들려 벗겨진 자리: 종이가 드러나고, 가장자리에 말린 조각
+    this.peels = (this.peels || 0) + 1;
+    const rng = this.rng, { g, p, r, c, t } = this.lay, R = L.s * DPR * .16 * (.7 + .6 * rng()), n = 9, a0 = rng() * 6.2832, path = new Path2D();
+    for (let i = 0; i < n; i++) { const a = a0 + i / n * 6.2832, rr = R * (.6 + .5 * rng()), x = P.x + Math.cos(a) * rr, y = P.y + Math.sin(a) * rr * .8; i ? path.lineTo(x, y) : path.moveTo(x, y); }
+    path.closePath();
+    for (const x of new Set([g, p, r, c, t])) if (x) { x.save(); x.globalCompositeOperation = 'destination-out'; x.globalAlpha = 1; x.fill(path); x.restore(); }
+    if (t) t._dirty = true;
+    if (c) {
+      const ang = (this.dir || 0) + (rng() - .5), fx = P.x + Math.cos(this.dir || 0) * R * .9, fy = P.y + Math.sin(this.dir || 0) * R * .9;
+      c.save(); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; c.translate(fx, fy); c.rotate(ang);
+      c.fillStyle = '#fdfdfb'; c.strokeStyle = 'rgba(110,100,85,.55)'; c.lineWidth = .7 * DPR;
+      c.beginPath(); c.ellipse(0, 0, R * .55, R * .26, 0, 0, 6.2832); c.fill(); c.stroke(); c.restore();
+    }
+    if (this.live) toast('세게 눌러서 수정테이프가 벗겨졌어요');
   }
   restore(){ if (this.cv) { for (const x of this.cv) x.restore(); this.cv = null; } else this.ctx.restore(); }
   setup(){
@@ -795,6 +843,7 @@ class Stroke {
     this.restore();
   }
   add(P){
+    this.v = P.v;
     this.setup();
     const q = this.q; q.push(P);
     if (q.length === 2) { const m = mid(q[0], q[1]); this.line(q[0], m); this.last = m; }
@@ -817,18 +866,19 @@ const toGrid = (x, y) => [(x - L.gx) / L.s, (y - L.gy) / L.s];
 const fromGrid = (gx, gy) => [(gx * L.s + L.gx) * DPR, (gy * L.s + L.gy) * DPR];
 function replay(st, ctx, dc){
   const X = ctx || LAY;
-  if (st.tool === 'clear') { const [a, b] = fromGrid(st.rect[0], st.rect[1]), [c, d] = fromGrid(st.rect[2], st.rect[3]); for (const x of new Set(X.g ? [X.g, X.p, X.r, X.c] : [X])) x.clearRect(a - 1, b - 1, c - a + 2, d - b + 2); return; }
-  const r = new Stroke(X, st.tool, st.seed, false); r.dc = dc || null; r.E = erOf(st.e);
+  if (st.tool === 'clear') { const [a, b] = fromGrid(st.rect[0], st.rect[1]), [c, d] = fromGrid(st.rect[2], st.rect[3]); for (const x of new Set(X.g ? [X.g, X.p, X.r, X.c, X.t].filter(Boolean) : [X])) x.clearRect(a - 1, b - 1, c - a + 2, d - b + 2); if (X.t) X.t._dirty = true; return; }
+  const r = new Stroke(X, st.tool, st.seed, false); r.dc = dc || null; r.rp = st.rp || 0; r.E = erOf(st.e);
   r.blunt = st.b || 0;
   st.pts.forEach((q, i) => {
     const [x, y] = fromGrid(q[0], q[1]);
-    const P = { x, y, p: q[2], t: q[3] };
+    const P = { x, y, p: q[2], t: q[3], v: q[4] };
     i === 0 ? r.begin(P) : r.add(P);
   });
   r.end();
 }
 function redrawInk(){
-  for (const k of ['g', 'p', 'r', 'c']) { LAY[k].setTransform(1, 0, 0, 1, 0, 0); LAY[k].clearRect(0, 0, inkC.width, inkC.height); }
+  for (const k of ['g', 'p', 'r', 'c', 't']) { LAY[k].setTransform(1, 0, 0, 1, 0, 0); LAY[k].clearRect(0, 0, inkC.width, inkC.height); }
+  LAY.t._dirty = true;
   dctx.setTransform(1, 0, 0, 1, 0, 0); dctx.clearRect(0, 0, dentC.width, dentC.height);
   for (const st of state.strokes) replay(st, null, dctx);
 }
@@ -1397,6 +1447,7 @@ sheet.addEventListener('pointerdown', ev => {
     v: 0, sp: .6, p: 0, dx: 0, dy: 0, travel: 0
   };
   if (app.blunt && tool !== 'eraser') { active.r.blunt = app.blunt(tool); active.st.b = +active.r.blunt.toFixed(3); }
+  if (state.realPressure) { active.r.rp = 1; active.st.rp = 1; }   // 필압 펜일 때만 테이프가 벗겨질 수 있다(손가락·마우스는 세기를 모름)
   const p = pressureOf(ev, active);
   active.p = p;
   const t = tiltOf(ev);
@@ -1426,9 +1477,10 @@ function addPoint(ev){
     lead -= dist / LEAD_PX; saveLead();
     if (lead <= 0) { lead = 0; a.dry = true; leadEmpty(); return; }
   }
-  a.r.add({ x: a.sx * DPR, y: a.sy * DPR, p: a.p, t });
-  const g = toGrid(a.sx, a.sy);
-  a.st.pts.push([+g[0].toFixed(4), +g[1].toFixed(4), +a.p.toFixed(3), +t.toFixed(3)]);
+  a.r.add({ x: a.sx * DPR, y: a.sy * DPR, p: a.p, t, v: a.v });
+  const g = toGrid(a.sx, a.sy), pt = [+g[0].toFixed(4), +g[1].toFixed(4), +a.p.toFixed(3), +t.toFixed(3)];
+  if (a.st.e === 'tape') pt.push(+a.v.toFixed(3));   // 끄는 빠르기(느리면 주름)
+  a.st.pts.push(pt);
   if (a.tool !== 'eraser') {
     if (app.onWear && PENS[a.tool].kind === 'graphite' && !PENS[a.tool].fixed) app.onWear(a.tool, dist);
     if (PENS[a.tool].kind === 'graphite' && !PENS[a.tool].fixed)
