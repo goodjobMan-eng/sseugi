@@ -360,6 +360,11 @@
   .sp-paper::before{background:#b9533f!important}
 
   @media (max-width:900px){ #brush{min-width:40px;padding:0 6px} .size input{width:52px!important} #pgSvg{width:46px!important} #sayQ{padding:0 6px} }
+
+  /* 아이패드(사파리)는 뒷면 숨김이 안 먹을 때가 있어, 표지가 반쯤(90도) 넘어간 순간에 겉·안을 직접 바꿔 보인다 */
+  .cover .in{opacity:0;transition:opacity 0s linear .3s} .cover.opening .in{opacity:1}
+  .cover .out{transition:opacity 0s linear .3s} .cover.opening .out{opacity:0}
+  .cover:not(.opening) .in,.cover:not(.opening) .out{transition-delay:0s}
 </style>
 <style id="answerFonts">
 /* 정답 글씨체: 모두 SIL Open Font License 1.1. 상용 한글 2,350자만 담아 용량을 줄였다. 파일로 열어도 되도록 글꼴을 페이지 안에 넣었다. */
