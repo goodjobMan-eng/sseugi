@@ -1710,6 +1710,7 @@ sheet.addEventListener('pointerdown', ev => {
     const q = local(ev); hands.set(ev.pointerId, { x: q.x, y: q.y, t: ev.timeStamp });
     return;
   }
+  if (active && active.type === 'pen' && ev.pointerType === 'pen') endStroke(null);   // 앞 획의 '뗌'을 놓쳤으면 그 획을 마치고 새 획을 받는다(새 획을 버리지 않게)
   if (active) return;
   if (leadButton(ev)) { ev.preventDefault(); return; }
   if (ev.pointerType === 'mouse' && ev.button === 2 && sharpOn()) { ev.preventDefault(); leadClick(); return; }   // 마우스 오른쪽 단추 = 펜 옆 버튼
@@ -1812,10 +1813,15 @@ function finish(ev){
   if (swipeUp(ev)) { hands.delete(ev.pointerId); return; }
   if (hands.has(ev.pointerId)) { hands.delete(ev.pointerId); return; }
   if (!active || ev.pointerId !== active.id) return;
+  // 사파리는 펜을 뗀 뒤의 '잡기 풀림' 알림을 늦게 보내기도 한다. 그때 이미 다음 획을 쓰는 중이면(펜이 닿아 있으면) 그 획을 끊지 않는다
+  if (ev.type === 'lostpointercapture' && (ev.buttons & 1)) return;
+  endStroke(ev);
+}
+function endStroke(ev){
   if (press) { press.up = performance.now(); kickFx(); }
   active.r.end();
   const st = active.st;
-  if (app.onTap && st.tool !== 'eraser' && st.pts.length <= 4 && ev.timeStamp - active.t0 < 350 && Math.hypot(active.sx - active.x0, active.sy - active.y0) < 8 && app.onTap(ev)) {
+  if (ev && app.onTap && st.tool !== 'eraser' && st.pts.length <= 4 && ev.timeStamp - active.t0 < 350 && Math.hypot(active.sx - active.x0, active.sy - active.y0) < 8 && app.onTap(ev)) {
     active = null; redrawInk(); soundHush(); return;   // 글자 표시를 톡 누른 것: 점은 남기지 않는다
   }
   state.strokes.push(st);
@@ -1827,6 +1833,9 @@ function finish(ev){
 }
 sheet.addEventListener('pointerup', finish);
 sheet.addEventListener('pointercancel', finish);
+/* 사파리·크롬(아이패드)은 펜으로 그은 것을 '손글씨 입력(Scribble)'이나 화면 몸짓으로 가져가 획을 끊기도 한다.
+   종이 위의 터치는 이 앱이 쓴다고 알려서 가로채지 않게 한다(앱 안 브라우저에서는 이 기능이 꺼져 있어 원래 잘 됐다) */
+for (const t of ['touchstart', 'touchmove']) sheet.addEventListener(t, e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
 sheet.addEventListener('lostpointercapture', finish);
 function brushWithHand(ev){
   const h = hands.get(ev.pointerId), q = local(ev);
