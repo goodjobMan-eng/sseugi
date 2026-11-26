@@ -1998,6 +1998,7 @@ function bookFlush(){ if (!Book.ready) return; clearTimeout(Book.t); for (const 
 window.addEventListener('pagehide', bookFlush);
 document.addEventListener('visibilitychange', () => { if (document.hidden) bookFlush(); });
 function showPage(){
+  if (typeof app !== 'undefined' && app.screen === 'dict' && Book.dict) dictLeave();
   state.strokes = curPage().strokes; dust.length = 0; crumbs.length = 0;
   if (typeof app !== 'undefined' && app.onNewSheet) app.onNewSheet();
   stampPaper(); redrawInk(); renderFx(); updatePageNo();
@@ -3352,19 +3353,30 @@ function startDictation(stage, items){
   const ps = clamp(L.rows, 3, 6);
   D.all = items || pickItems(stage, Math.min(10, stage.items.length));
   const pages = []; for (let k = 0; k < D.all.length; k += ps) pages.push({ strokes: [], items: D.all.slice(k, k + ps) });
-  Book.dict = Object.assign(newDocObj(1), { title: app.title, pages, cur: 0 });
+  Book.dict = Object.assign(newDocObj(1), { title: app.title, pages, cur: 0 }); D.pgShown = null;
   D.ps = ps; D.items = pages[0].items; D.off = 0;
   app.layout = { rows: Math.min(ps, D.all.length), minCols: Math.max(...D.all.map(i => i[0].length)) };   // 부호 뒤 칸을 띄워 쓰는 아이도 들어가게 원래 길이로
   state.strokes = pages[0].strokes; clearLabels(); app.marks = [];
   applyLayout(); showPage();
 }
 // 시험지 장을 펼칠 때: 그 장의 문항·채점 표시로 맞춘다
+// 떠나는 장의 인식 글자(파란 글씨)와 아직 못 읽은 칸을 그 장에 맡겨 둔다(새 장을 펴며 지우기 전에)
+function dictLeave(){
+  const b = Book.dict; if (!b || D.pgShown == null || D.pgShown === b.cur || !b.pages[D.pgShown]) return;
+  const o = b.pages[D.pgShown]; o.labels = new Map(labels); o.pend = new Set([...(o.pend || []), ...pending]);
+}
 function dictSync(){
   const b = Book.dict, pg = b.pages[b.cur], first = !pg.seen; pg.seen = true;
+  D.pgShown = b.cur;
   D.items = pg.items; D.off = b.cur * D.ps;
   const key = keyOn();
   clearLabels();
-  if (D.graded && pg.labels) { for (const [k, v] of pg.labels) labels.set(k, v); renderLabels(); }
+  if (pg.labels) { for (const [k, v] of pg.labels) labels.set(k, v); renderLabels(); }
+  if (pg.pend) { pg.pend.forEach(k => pending.add(k)); pg.pend = null; }
+  if (D.recOpen && !D.graded) {   // 받아쓰기를 다 쓴 뒤로는 어느 장을 펴도 그 장 글씨를 읽어 보여 준다
+    for (const st of pg.strokes) for (const k of cellsOf(st)) if (!labels.has(k)) pending.add(k);
+    if (pending.size) { clearTimeout(recT); recT = setTimeout(recWhenIdle, 300); }
+  }
   app.marks = (D.graded && pg.marks ? pg.marks.slice() : []); if (key) app.marks.push({ type: 'key' });
   redrawMarks();
   const back = D.turnBack; D.turnBack = false;
@@ -3441,8 +3453,13 @@ let grading = false;
 async function readPage(i){   // 한 장의 글씨를 종이에 깔고 칸마다 읽는다
   const b = Book.dict, pg = b.pages[i];
   state.strokes = pg.strokes; D.items = pg.items; D.off = i * D.ps; redrawInk();
-  clearLabels(); const cells = new Set(); for (const st of pg.strokes) for (const k of cellsOf(st)) cells.add(k);
-  D.recOpen = true; cells.forEach(k => pending.add(k)); await flushRecognition();
+  // 이미 읽은 칸(아이가 고친 글자 포함)은 그대로 두고, 아직 못 읽었거나 고쳐 쓴 칸만 읽는다
+  const keep = new Map(pg.labels || []), pend = new Set(pg.pend || []);
+  clearLabels(); for (const [k, v] of keep) labels.set(k, v);
+  const ink = new Set(); for (const st of pg.strokes) for (const k of cellsOf(st)) ink.add(k);
+  for (const k of [...labels.keys()]) if (!ink.has(k)) labels.delete(k);
+  D.recOpen = true; for (const k of ink) if (!labels.has(k) || pend.has(k)) pending.add(k);
+  await flushRecognition(); pg.pend = null;
   pg.labels = new Map(labels);
   return pageRes(i);
 }
@@ -3454,7 +3471,8 @@ async function grade(){
   const all = [];
   try {
     clearTimeout(recT);
-    if (b) { for (let i = 0; i < b.pages.length; i++) if (i !== b.cur) all.push(...await readPage(i)); all.push(...await readPage(b.cur)); }
+    if (b) { const cp = b.pages[b.cur]; cp.labels = new Map(labels); cp.pend = new Set([...(cp.pend || []), ...pending]);
+      for (let i = 0; i < b.pages.length; i++) if (i !== b.cur) all.push(...await readPage(i)); all.push(...await readPage(b.cur)); }
     else { await flushRecognition(); all.push(...pageRes(0)); }
   } finally { grading = false; sheet.classList.remove('grading'); }
   if (b) { const pg = b.pages[b.cur]; D.items = pg.items; D.off = b.cur * D.ps; }
