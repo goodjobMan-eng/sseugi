@@ -3760,7 +3760,7 @@ const TUT = [
   { t: '「장 추가」를 누르면 원고지가 한 장 더 붙어요.', sub: '눌러 보세요.', target: elRect('#newsheet'), wait: 'add' },
   { t: '잘못 쓴 장은 찢을 수 있어요. 이 빈 장을 찢어 볼까요?', sub: '종이 위쪽 끝을 잡고 아래로 쭉 내려요. 「이 장 찢기」 버튼으로도 돼요.', target: () => edgeRect('top'), hand: 'top', wait: 'tear' },
   { t: '찢은 장도 버려지지 않아요.', sub: '「원고함」을 열어 보세요. 원고에 제목을 붙여 저장하고, 찢은 장을 되살릴 수 있어요.', target: elRect('#save'), wait: 'docs' },
-  { t: '다 배웠어요! 이제 내 글씨를 익힐게요.', sub: '「다 했어요」를 누르면 따라 쓴 글씨로 내 글씨를 알아보는 힘이 커져요.', btn: '다 했어요', finish: true }
+  { t: '다 배웠어요! 이제 본격적으로 따라 써 볼까요?', sub: '「따라 쓰러 가기」를 누르면 연습할 급수를 골라요.', btn: '따라 쓰러 가기', finish: true }
 ];
 let tutI = -1, tutInk = 0;
 function tutShow(){
@@ -3815,9 +3815,8 @@ function startTutorial(){
 $('#coachBtn').addEventListener('click', () => {
   const st = TUT[tutI]; if (!st) return;
   if (st.finish) {
-    const r = learnTut(); tutEnd(); store.set('tutDone', 1);
-    toast(r.nSyl ? `글자 ${r.nSyl}개와 낱자 ${r.nJ}개를 익혔어요! 이제 받아쓰기 문장을 따라 써 봐요` : '이제 받아쓰기 문장을 따라 써 봐요');
-    setTimeout(() => { goHome(); openStages('copy'); }, 900);
+    tutEnd(); store.set('tutDone', 1);   // 글씨 익히기(무거운 계산)는 하지 않고 바로 급수 고르기로
+    goHome(); openStages('copy');
     return;
   }
   if (st.wait === 'fill' && tutFill() < .5) { toast('아래 칸에 조금 더 따라 써 볼까요?'); return; }
