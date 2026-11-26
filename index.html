@@ -3477,7 +3477,7 @@ function showResult(score, res){
   $('#toHome').onclick = goHome;
 }
 function closeResult(){ $('#result').classList.remove('show'); }
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]); }   // 함수로 두어 어디서든 먼저 쓸 수 있게(아이패드는 목소리 목록을 일찍 불러 여기서 멈췄음)
 
 /* ═════════ 낱자 익히기(= 내 글씨 등록) ═════════ */
 const E = { i: 0 };
