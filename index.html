@@ -604,7 +604,7 @@ const ERASERS = {
   tape: { name: '수정테이프', cover: 'tape', w: .5, r: 2.6,   // 폭 5mm(원고지 한 칸 10mm 기준)
   fill: '#fcfcfa', rate: 1e-9, tone: 1.7, vol: .6, body: '#5aa0d8' },
   fluid: { name: '수정액', cover: 'fluid', w: .05, r: .55,   // 촉 1mm
-  fill: '#fbfbf7', rate: 1e-9, tone: 1.2, vol: .35, body: '#f4f4f1' },
+  fill: '#fbfbf7', rate: 1e-9, tone: 1.1, vol: .05, body: '#f4f4f1' },
   scent: { name: '향기 지우개', r: 1.15, clean: .82, rate: .9, len: 1.1, w: 1.2, cols: [[250, 214, 120], [246, 190, 206], [180, 220, 200]], tone: .9, vol: .9, body: '#f7c9d6' }
 };
 const erOf = k => ERASERS[k] || ERASERS.white;
@@ -1287,11 +1287,11 @@ function loadSamples(){
   }));
   return Snd.sampleP;
 }
-function playSample(k, gain){
+function playSample(k, gain, rate){
   ensureAudio(); if (!Snd.ok || state.vol === 0) return false;
   loadSamples(); const buf = Snd.samples && Snd.samples[k];
   if (!buf) { if (!Snd.sampleP || k in Snd.samples) return false; Snd.sampleP.then(() => { if (Snd.samples[k]) playSample(k, gain); }); return true; }   // 처음 한 번은 녹음을 푸는 동안 아주 잠깐 기다렸다 낸다
-  const s = Snd.ac.createBufferSource(); s.buffer = buf; s.playbackRate.value = 1 + (Math.random() - .5) * .06;   // 매번 아주 조금씩 다르게
+  const s = Snd.ac.createBufferSource(); s.buffer = buf; s.playbackRate.value = (rate || 1) * (1 + (Math.random() - .5) * .06);   // 매번 아주 조금씩 다르게
   const g = Snd.ac.createGain(); g.gain.value = (gain || 1) * VOL[state.vol] / .45 * .55;
   s.connect(g); g.connect(Snd.ac.destination); s.start();
   return true;
@@ -1610,7 +1610,8 @@ function setPenUI(){
       state.pen = k; store.set('pen', k); setPenUI(); m.classList.remove('open');
       if (k === 'ball' && !playSample('click', 1)) soundKnock();
       if (k === 'sharp' && !playSample('sclick', 1)) soundKnock();
-      if (((PENS[k].kind === 'graphite' && !PENS[k].fixed) || PENS[k].kind === 'wax') && !playSample('down', .9)) soundClink();
+      if (PENS[k].kind === 'graphite' && !PENS[k].fixed && !playSample('down', .9)) soundClink();
+      if (PENS[k].kind === 'wax') playSample('down', .38, 1.7);   // 종이를 감은 색연필: 나무 연필보다 가볍고 바스락한 '톡'
       if (k === 'sign' && !playSample('cap', 1)) soundCapPop();   // 사인펜: 뚜껑 여는 소리(Pixabay 「Pen Cap」 좋아요 5 — 사인펜(채점용 펜) 뚜껑 녹음. 울림 꼬리는 잘라 건조하게)
       if (k === 'fountain') soundFountainCap();         // 만년필: 쇠 뚜껑을 빼는 '찰칵'   // 연필(HB·2B): 연필 내려놓는 소리
       selectTool('pencil');
