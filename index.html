@@ -81,6 +81,7 @@
   #sheet{position:absolute;border-radius:2px;
     box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 1px 2px rgba(70,50,20,.18),0 18px 34px -18px rgba(70,50,20,.45);
     transition:transform .32s cubic-bezier(.3,.7,.2,1),opacity .32s}
+  #sheet.grading #ink,#sheet.grading #pen,#sheet.grading #red,#sheet.grading #labels{opacity:0}   /* 채점하며 장을 바꿔 읽는 동안 글씨를 잠깐 가린다 */
   #sheet.out{transform:translateY(-38px) rotate(-1.2deg);opacity:0}
   #sheet.in{transform:translateY(26px);opacity:0;transition:none}
   #sheet canvas{position:absolute;left:0;top:0;width:100%;height:100%}
@@ -332,6 +333,7 @@
   .sp-paper header{display:flex;align-items:center;gap:12px;margin:0 0 16px -10px;font-family:"Nanum Myeongjo","Noto Serif KR",serif}
   .sp-paper header b{font-size:22px;color:#3f3a32} .sp-paper header small{font-size:15px;color:var(--ink-soft);font-family:inherit}
   .sp-paper #weak{margin-top:14px}
+  #weak .review{height:42px;padding:0 16px;border-radius:999px;background:#fbe9e5;color:#a8412f;font-family:"Nanum Myeongjo","Noto Serif KR",serif;font-size:15.5px;font-weight:700;gap:8px} #weak .review b{font-family:inherit;font-size:13px;min-width:22px;height:22px;border-radius:11px;background:#c84c3a;color:#fff;display:inline-grid;place-items:center;padding:0 6px}
   @media (max-width:760px){ .sp-paper{padding:16px 14px 20px 28px} .sp-paper::before{width:10px} }
 
   /* 첫 화면은 공책 세 권만 */
@@ -1947,7 +1949,7 @@ $('#brush').addEventListener('click', () => {
 /* ───────────── 쪽 저장 · 쪽 넘기기 ─────────────
    자유 쓰기의 공책·원고지는 쪽마다 이 기기 안(IndexedDB)에 바로바로 저장한다. 획을 칸 단위로 남기므로 칸 크기를 바꿔도 그대로 다시 그린다.
    손가락으로 길게 밀면 종이가 넘어간다(펜을 쓰는 기기는 종이 어디서든, 손가락으로 쓰는 기기는 종이 가장자리에서). */
-const bookOn = () => typeof app === 'undefined' || app.screen === 'free' || !!app.copy;
+const bookOn = () => typeof app === 'undefined' || app.screen === 'free' || !!app.copy || (app.screen === 'dict' && !!Book.dict);
 const Book = { notebook: null, manuscript: null, ready: false, t: 0 };
 const IDB = (() => {
   let dbp = null;
@@ -1972,7 +1974,7 @@ const IDB = (() => {
 /* 원고: 공책·원고지마다 원고 여러 개를 두고, 원고마다 여러 장을 묶는다. 장 번호는 종이 오른쪽 위에 찍힌다. */
 const libOf = m => Book[m] || (Book[m] = { docs: [newDocObj(1)], cur: 0 });
 function newDocObj(n){ return { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: '', n, t: Date.now(), pages: [{ strokes: [] }], cur: 0 }; }
-function curBook(){ if (typeof app !== 'undefined' && app.copy && Book.copy) return Book.copy; const L0 = libOf(state.mode); return L0.docs[L0.cur] || (L0.cur = 0, L0.docs[0]); }
+function curBook(){ if (typeof app !== 'undefined' && app.copy && Book.copy) return Book.copy; if (typeof app !== 'undefined' && app.screen === 'dict' && Book.dict) return Book.dict; const L0 = libOf(state.mode); return L0.docs[L0.cur] || (L0.cur = 0, L0.docs[0]); }
 const curPage = () => { const b = curBook(); return b.pages[b.cur]; };
 const docTitle = d => d.title || `원고 ${d.n || 1}`;
 async function loadBooks(){
@@ -1987,7 +1989,7 @@ async function loadBooks(){
 function bookSave(){
   if (!Book.ready || !bookOn()) return;
   const p = curPage(), d = curBook(); p.strokes = state.strokes; p.t = d.t = Date.now();
-  if (app.copy) return;
+  if (app.copy || app.screen === 'dict') return;
   const m = state.mode; clearTimeout(Book.t);
   const save = () => { if (active) { Book.t = setTimeout(save, 600); return; } IDB.set(m, Book[m]); };
   Book.t = setTimeout(save, 1200);
@@ -2000,6 +2002,7 @@ function showPage(){
   if (typeof app !== 'undefined' && app.onNewSheet) app.onNewSheet();
   stampPaper(); redrawInk(); renderFx(); updatePageNo();
   if (typeof app !== 'undefined' && app.copy) copySync();
+  if (typeof app !== 'undefined' && app.screen === 'dict' && Book.dict) dictSync();
 }
 // 장 번호: 원고지 오른쪽 위에 「( 2 / 5 )」 — 이 장이 몇째 장인지 / 모두 몇 장인지
 const paperBaseC = document.createElement('canvas');
@@ -2009,7 +2012,7 @@ function stampPageNo(g, idx, total){
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   g.fillStyle = 'rgba(200,76,58,.85)'; g.font = `${13 * D}px ${serif}`; g.textAlign = 'right'; g.textBaseline = 'middle';
   g.fillText(`( ${idx + 1} / ${total} )`, (L.w - 16) * D, Math.max(14, Math.min(22, (L.gy || 30) * .45)) * D);
-  if (L.nb) {   // 줄 번호는 장을 넘겨도 이어진다(1장 1~4 → 2장 5~8)
+  if (L.nb || app.screen === 'dict') {   // 줄 번호는 장을 넘겨도 이어진다(1장 1~4 → 2장 5~8)
     g.fillStyle = 'rgba(200,76,58,.82)'; g.font = `${12 * D}px ${serif}`;
     for (let r = 0; r < L.rows; r++) g.fillText(String(idx * L.rows + r + 1), (L.gx - 9) * D, (L.gy + r * L.s * (1 + L.gap) + L.s / 2) * D);
   }
@@ -2226,7 +2229,7 @@ pageNoEl.innerHTML = '<button class="pv" aria-label="앞 장">‹</button><span>
 // 앞 장·다음 장 버튼(손으로 넘기는 것과 똑같이 종이가 말려 넘어간다)
 function flipBy(dir){
   if (flip || tear) return; const b = curBook();
-  if (dir === 'next' && b.cur >= b.pages.length - 1) { if (app.copy) { copyNextStage(false); return; } toast('마지막 장이에요. 「장 추가」로 한 장 더 붙여요'); return; }
+  if (dir === 'next' && b.cur >= b.pages.length - 1) { if (app.copy) { copyNextStage(false); return; } if (app.screen === 'dict') { toast(D.graded ? '마지막 장이에요' : '마지막 장이에요. 다 썼으면 「다 썼어요」를 눌러요'); return; } toast('마지막 장이에요. 「장 추가」로 한 장 더 붙여요'); return; }
   const r = sheet.getBoundingClientRect();
   if (!startFlip(dir, dir === 'next' ? r.right - 4 : r.left + 4, r.top + r.height * .75)) return;
   if (dir === 'next') { flip.t = flip.aspect * .95; releaseFlip(-1); } else { flip.t = flip.aspect; releaseFlip(1); }
@@ -2239,6 +2242,7 @@ function startFlip(dir, cx, cy){
   if (dir === 'prev' && b.cur === 0) { toast('첫 쪽이에요'); return null; }
   let added = false;
   if (app.copy && dir === 'next' && b.cur === b.pages.length - 1) { copyNextStage(false); return null; }
+  if (app.screen === 'dict' && dir === 'next' && b.cur === b.pages.length - 1) { toast(D.graded ? '마지막 장이에요' : '마지막 장이에요. 다 썼으면 「다 썼어요」를 눌러요'); return null; }
   if (dir === 'next' && b.cur === b.pages.length - 1) {
     if (!state.strokes.length) { toast('빈 쪽이에요. 글씨를 쓰면 다음 쪽이 생겨요'); return null; }
     b.pages.push({ strokes: [] }); added = true;
@@ -2475,7 +2479,7 @@ function tearEnd(force){
 // 찢은 장은 버리지 않고 「찢은 장」에 모아 둔다(실수로 찢어도 되살릴 수 있게). 원고지·공책마다 최근 40장
 let lastTorn = null;
 function removeCurrentPage(){
-  if (app.copy) { curPage().strokes = []; lastTorn = null; showPage(); toast('찢고 새 장을 폈어요. 다시 따라 써 봐요'); return; }
+  if (app.copy || app.screen === 'dict') { curPage().strokes = []; lastTorn = null; showPage(); toast(app.copy ? '찢고 새 장을 폈어요. 다시 따라 써 봐요' : '찢고 새 장을 폈어요. 이 장 문제를 다시 써요'); return; }
   const d = curBook(), lib = libOf(state.mode);
   const page = d.pages[d.cur];
   if (page && page.strokes.length) {
@@ -2768,6 +2772,7 @@ app.onPenDown = () => { clearTimeout(recT); };
 app.marks = [];
 
 function setScreen(name){
+  if (name !== 'dict') Book.dict = null;
   if (name !== 'quick' && app.copy) { app.copy = false; Book.copy = null; delete document.body.dataset.copy; }   // 따라 쓰기 연습을 나가면 연습 공책을 닫는다
   app.screen = name;
   document.body.dataset.screen = name;
@@ -3161,6 +3166,7 @@ function queueCells(cells){
   clearTimeout(recT); recT = setTimeout(recWhenIdle, 800);
 }
 function lastRowDone(){
+  if (Book.dict && Book.dict.cur !== Book.dict.pages.length - 1) return false;
   const r = D.items.length - 1, t = cellT(D.items[r][0]); let n = 0, w = 0;
   [...t].forEach((ch, c) => { if (ch === ' ' || PUNCT.includes(ch) || c >= L.cols) return; n++; if (binarize(cellAlpha(r, c))) w++; });
   return n > 0 && w / n >= .85;
@@ -3307,11 +3313,30 @@ async function say(parts, rate, kind){
 
 /* ═════════ 받아쓰기 ═════════ */
 const D = { stage: null, items: [], cur: 0, graded: false, results: [] };
+const ITEM_ST = new Map(); STAGES.forEach(st => st.items.forEach(it => ITEM_ST.set(it, st)));
+const stOf = it => ITEM_ST.get(it) || D.stage;
+// 틀린 문제 모아 풀기: 틀린 적 있는 문장(최근 것부터, 같은 문장은 한 번)
+function wrongItems(){
+  const seen = new Set(), out = [];
+  for (let i = rec.errs.length - 1; i >= 0; i--) {
+    const e = rec.errs[i], st = STAGES.find(x => x.id === e.stage); if (!st) continue;
+    const it = st.items.find(x => cellT(x[0]) === cellT(e.text)); if (!it || seen.has(it)) continue;
+    seen.add(it); out.push(it);
+  }
+  return out;
+}
+const REVIEW = { id: 0, title: '틀린 문제 모아 풀기', items: [], review: true };
+function startReview(){
+  const its = wrongItems(); if (!its.length) { toast('틀린 문제가 없어요!'); return; }
+  REVIEW.items = its; closeStages();
+  app.layout = { minCols: 4 }; computeLayout();
+  startDictation(REVIEW, its.slice(0, 10));
+}
 function stageScore(id){ const s = rec.stats[id]; return s ? (s.ok + 1) / (s.n + 2) : null; }
 function pickItems(stage, n){
-  const wrong = new Set(rec.errs.filter(e => e.stage === stage.id).map(e => e.text));
+  const wrong = new Set(rec.errs.filter(e => e.stage === stage.id).map(e => cellT(e.text)));
   const pool = stage.items.slice().sort(() => Math.random() - .5);
-  pool.sort((a, b) => (wrong.has(b[0]) ? 1 : 0) - (wrong.has(a[0]) ? 1 : 0));  // 전에 틀린 문항을 먼저
+  pool.sort((a, b) => (wrong.has(cellT(b[0])) ? 1 : 0) - (wrong.has(cellT(a[0])) ? 1 : 0));  // 전에 틀린 문항을 먼저
   return pool.slice(0, n);
 }
 function startDictation(stage, items){
@@ -3321,26 +3346,40 @@ function startDictation(stage, items){
   D.stage = stage; D.graded = false; D.cur = 0; D.results = []; D.recOpen = false;
   state.mode = 'notebook';
   app.title = D.exam ? `시험 · ${stage.id}단계 · 번호 ${D.exam}` : `받아쓰기 · ${stage.title}`;
-  // 화면에 들어가는 줄 수만큼 문항을 낸다(3~6문항)
+  // 한 번에 10문제(단계 문장이 적으면 그만큼). 한 장에는 화면에 들어가는 줄 수(3~6)만큼 쓰고, 장을 넘겨 이어 쓴다
   app.layout = { minCols: 4 };
   computeLayout();
-  const n = items ? items.length : clamp(L.rows, 3, Math.min(6, stage.items.length));
-  D.items = items || pickItems(stage, n);
-  app.layout = { rows: D.items.length, minCols: Math.max(...D.items.map(i => i[0].length)) };   // 부호 뒤 칸을 띄워 쓰는 아이도 들어가게 원래 길이로
-  state.strokes = []; clearLabels(); app.marks = [];
-  applyLayout();
-  setCur(0, true);
+  const ps = clamp(L.rows, 3, 6);
+  D.all = items || pickItems(stage, Math.min(10, stage.items.length));
+  const pages = []; for (let k = 0; k < D.all.length; k += ps) pages.push({ strokes: [], items: D.all.slice(k, k + ps) });
+  Book.dict = Object.assign(newDocObj(1), { title: app.title, pages, cur: 0 });
+  D.ps = ps; D.items = pages[0].items; D.off = 0;
+  app.layout = { rows: Math.min(ps, D.all.length), minCols: Math.max(...D.all.map(i => i[0].length)) };   // 부호 뒤 칸을 띄워 쓰는 아이도 들어가게 원래 길이로
+  state.strokes = pages[0].strokes; clearLabels(); app.marks = [];
+  applyLayout(); showPage();
+}
+// 시험지 장을 펼칠 때: 그 장의 문항·채점 표시로 맞춘다
+function dictSync(){
+  const b = Book.dict, pg = b.pages[b.cur], first = !pg.seen; pg.seen = true;
+  D.items = pg.items; D.off = b.cur * D.ps;
+  const key = keyOn();
+  clearLabels();
+  if (D.graded && pg.labels) { for (const [k, v] of pg.labels) labels.set(k, v); renderLabels(); }
+  app.marks = (D.graded && pg.marks ? pg.marks.slice() : []); if (key) app.marks.push({ type: 'key' });
+  redrawMarks();
+  const back = D.turnBack; D.turnBack = false;
+  setCur(back ? D.items.length - 1 : 0, first && !D.graded);
 }
 function setCur(i, speak){
   D.cur = clamp(i, 0, D.items.length - 1);
-  $('#qNo').textContent = (D.cur + 1) + '번';
+  $('#qNo').textContent = ((D.off || 0) + D.cur + 1) + '번';
   $('#teacherText').textContent = D.items[D.cur][0];
   positionRowMark();
   if (speak) setTimeout(() => sayItem(), 350);
 }
 function sayItem(){
   const it = D.items[D.cur], t = it[0];
-  sayRec(D.cur + 1, D.stage.id, D.stage.items.indexOf(it) + 1, t).then(ok => { if (!ok) say([`${D.cur + 1}번.`, t, t]); });
+  const no = (D.off || 0) + D.cur + 1, so = stOf(it); sayRec(no, so.id, so.items.indexOf(it) + 1, t).then(ok => { if (!ok) say([`${no}번.`, t, t]); });
 }
 function positionRowMark(){
   const m = $('#rowMark');
@@ -3348,8 +3387,9 @@ function positionRowMark(){
   const B = cellBox(D.cur, 0);
   Object.assign(m.style, { display: 'block', left: (L.gx - 30) + 'px', top: (B.y + B.s / 2 - 7) + 'px' });
 }
-$('#prevQ').addEventListener('click', () => setCur(D.cur - 1, true));
-$('#nextQ').addEventListener('click', () => setCur(D.cur + 1, true));
+// 앞·다음 문제: 장 끝에서는 장을 넘긴다
+$('#prevQ').addEventListener('click', () => { if (D.cur === 0 && Book.dict && Book.dict.cur > 0) { D.turnBack = true; flipBy('prev'); } else setCur(D.cur - 1, true); });
+$('#nextQ').addEventListener('click', () => { if (D.cur === D.items.length - 1 && Book.dict && Book.dict.cur < Book.dict.pages.length - 1) flipBy('next'); else setCur(D.cur + 1, true); });
 $('#sayQ').addEventListener('click', () => sayItem());
 // 선생님 시험지: 자물쇠를 누르고 암호(goodjobman)를 넣으면 공책 칸에 이번 시험 문제가 모두 흐리게 적힌다. 다시 누르면 가린다
 const UNLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.8"/></svg>', LOCKED = $('#teacher').innerHTML;
@@ -3398,11 +3438,34 @@ function diagnose(want, got, pron, rule){
   return '다른 글자를 썼어요';
 }
 let grading = false;
+async function readPage(i){   // 한 장의 글씨를 종이에 깔고 칸마다 읽는다
+  const b = Book.dict, pg = b.pages[i];
+  state.strokes = pg.strokes; D.items = pg.items; D.off = i * D.ps; redrawInk();
+  clearLabels(); const cells = new Set(); for (const st of pg.strokes) for (const k of cellsOf(st)) cells.add(k);
+  D.recOpen = true; cells.forEach(k => pending.add(k)); await flushRecognition();
+  pg.labels = new Map(labels);
+  return pageRes(i);
+}
 async function grade(){
-  if (grading) return; grading = true;
-  try { clearTimeout(recT); await flushRecognition(); } finally { grading = false; }
+  if (grading) return;
+  const b = Book.dict;
+  if (b && b.cur < b.pages.length - 1) { flipBy('next'); return; }   // 앞 장에서 누르면 다음 장으로
+  grading = true; sheet.classList.add('grading');
+  const all = [];
+  try {
+    clearTimeout(recT);
+    if (b) { for (let i = 0; i < b.pages.length; i++) if (i !== b.cur) all.push(...await readPage(i)); all.push(...await readPage(b.cur)); }
+    else { await flushRecognition(); all.push(...pageRes(0)); }
+  } finally { grading = false; sheet.classList.remove('grading'); }
+  if (b) { const pg = b.pages[b.cur]; D.items = pg.items; D.off = b.cur * D.ps; }
   D.graded = true; positionRowMark();
-  const st = D.stage, res = [];
+  const st = D.stage, res = all.sort((a, c) => a.r - c.r);
+  // 장마다 빨간 색연필 표시
+  if (b) b.pages.forEach((pg, i) => { pg.marks = res.filter(x => Math.floor(x.r / D.ps) === i).map(x => x.ok ? { type: 'circle', r: x.r - i * D.ps } : { type: 'wrong', r: x.r - i * D.ps, x: Object.assign({}, x, { r: x.r - i * D.ps }) }); });
+  gradeFinish(st, res);
+}
+function pageRes(i){   // 지금 장의 칸 글자로 문항마다 맞고 틀림(r은 시험 전체의 문항 번호 - 1)
+  const res = [], off = i * (D.ps || 0);
   D.items.forEach((it, r) => {
     // 원고지 쓰는 법(부호 뒤 빈칸 없음)대로 쓴 것과 한 칸 띄운 것을 모두 맞게 본다
     const tryT = (t, p) => {
@@ -3412,20 +3475,26 @@ async function grade(){
       for (let c = 0; c <= lastCol; c++) {
         const want = t[c] || ' ', lb = labels.get(r + ',' + c), got = lb ? lb.ch : ' ';
         written += got;
-        const why = diagnose(want, got, p[c], st.rule);
+        const why = diagnose(want, got, p[c], stOf(it).rule);
         if (why) wrong.push({ c, want, got, why });
       }
       return { r, text: t, written: written.trimEnd(), ok: !wrong.length, wrong };
     };
     const a = tryT(cellT(it[0]), cellT(it[1] || it[0])), b = cellT(it[0]) === it[0] ? a : tryT(it[0], it[1] || it[0]);
-    res.push(b.wrong.length < a.wrong.length ? b : a);
+    const best = b.wrong.length < a.wrong.length ? b : a; best.r = off + r; best.it = it;
+    res.push(best);
   });
+  return res;
+}
+function gradeFinish(st, res){
   D.results = res;
   // 기록(기기 안에만)
-  const s = rec.stats[st.id] || { n: 0, ok: 0 };
-  s.n += res.length; s.ok += res.filter(x => x.ok).length; rec.stats[st.id] = s; saveRec('stats');
+  for (const x of res) { const so = stOf(x.it); if (!so.id) continue; const s = rec.stats[so.id] || { n: 0, ok: 0 }; s.n++; if (x.ok) s.ok++; rec.stats[so.id] = s; }
+  saveRec('stats');
+  // 틀린 문제 모아 풀기에서 맞힌 문장은 목록에서 뺀다
+  for (const x of res) if (x.ok) { const t0 = cellT(x.it[0]); rec.errs = rec.errs.filter(e => cellT(e.text) !== t0); }
   for (const x of res) if (!x.ok) {
-    rec.errs.push({ stage: st.id, text: x.text, written: x.written, why: x.wrong[0].why, t: Date.now() });
+    rec.errs.push({ stage: stOf(x.it).id, text: x.it[0], written: x.written, why: x.wrong[0].why, t: Date.now() });
     for (const w of x.wrong) rec.tags[w.why] = (rec.tags[w.why] || 0) + 1;
   }
   rec.errs = rec.errs.slice(-80); saveRec('errs'); saveRec('tags');
@@ -3440,8 +3509,10 @@ async function grade(){
   const keys = Object.keys(rec.syl); if (keys.length > 400) delete rec.syl[keys[0]];
   if (added) saveRec('syl');
   // 빨간 색연필 채점
-  app.marks = [];
-  res.forEach(x => app.marks.push(x.ok ? { type: 'circle', r: x.r } : { type: 'wrong', r: x.r, x }));
+  const bk = Book.dict, key = keyOn();
+  app.marks = bk ? bk.pages[bk.cur].marks.slice() : res.map(x => x.ok ? { type: 'circle', r: x.r } : { type: 'wrong', r: x.r, x });
+  if (key) app.marks.push({ type: 'key' });
+  if (bk) { renderLabels(); }
   const score = Math.round(res.filter(x => x.ok).length / res.length * 100);
   app.marks.push({ type: 'score', score });
   redrawMarks();
@@ -3509,7 +3580,7 @@ function showResult(score, res){
       : '') +
     `<div class="btns">${wrong.length ? '<button class="primary" id="retry" title="틀린 것 다시 쓰기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/></svg><span>다시</span></button>' : ''}<button id="again" class="ib" title="새 문제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M12 11v6M9 14h6" stroke-linecap="round"/></svg></button><button id="seeSheet" class="ib" title="공책 보기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg></button><button id="toHome" class="ib" title="처음으로"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg></button></div>`;
   $('#result').classList.add('show');
-  const retry = $('#retry'); if (retry) retry.onclick = () => startDictation(D.stage, wrong.map(x => D.items[x.r]));
+  const retry = $('#retry'); if (retry) retry.onclick = () => startDictation(D.stage, wrong.map(x => x.it || D.items[x.r]));
   $('#again').onclick = () => startDictation(D.stage);
   $('#seeSheet').onclick = closeResult;
   $('#toHome').onclick = goHome;
@@ -3937,7 +4008,9 @@ function renderHome(){
   }
   for (let i = STAGES.length; i % 30; i++) { const f = document.createElement('i'); f.className = 'stage blank'; list.appendChild(f); }   // 빈 칸으로 줄을 채운다
   const tags = Object.entries(rec.tags).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  $('#weak').innerHTML = tags.map(([k, v]) => `<span title="자주 틀려요">${esc(k)} ${v}</span>`).join('');
+  const nW = wrongItems().length;   // 틀린 까닭 꼬리표 대신, 틀린 문장을 모아 다시 푸는 단추
+  $('#weak').innerHTML = nW ? `<button id="reviewBtn" class="review">틀린 문제 모아 풀기 <b>${nW}</b></button>` : '';
+  const rb = $('#reviewBtn'); if (rb) rb.onclick = startReview;
   loadVoices();
 }
 function setFontUI(){
