@@ -112,7 +112,7 @@
   button.primary{background:var(--red);color:#fff;font-weight:600;padding:0 16px}
   button.primary:hover{background:#b54333}
   button.say b{font-weight:700}
-  .cp{display:none} body[data-copy] .cp{display:inline-flex}
+  .cp{display:none} body[data-copy] .cp{display:inline-flex} body[data-copy] #pageNo{display:none!important}
   #cpStage{gap:4px;font-family:"Nanum Myeongjo","Noto Serif KR",serif;font-size:15px;color:#5a5348} #cpStage svg{width:16px;height:16px} #cpStage b{font-weight:700}
   .prog{font-size:13.5px;color:var(--ink-soft);padding:0 8px;font-variant-numeric:tabular-nums}
   .tw{position:relative;display:inline-flex}
@@ -1946,7 +1946,7 @@ $('#brush').addEventListener('click', () => {
 /* ───────────── 쪽 저장 · 쪽 넘기기 ─────────────
    자유 쓰기의 공책·원고지는 쪽마다 이 기기 안(IndexedDB)에 바로바로 저장한다. 획을 칸 단위로 남기므로 칸 크기를 바꿔도 그대로 다시 그린다.
    손가락으로 길게 밀면 종이가 넘어간다(펜을 쓰는 기기는 종이 어디서든, 손가락으로 쓰는 기기는 종이 가장자리에서). */
-const bookOn = () => typeof app === 'undefined' || app.screen === 'free';
+const bookOn = () => typeof app === 'undefined' || app.screen === 'free' || !!app.copy;
 const Book = { notebook: null, manuscript: null, ready: false, t: 0 };
 const IDB = (() => {
   let dbp = null;
@@ -1971,7 +1971,7 @@ const IDB = (() => {
 /* 원고: 공책·원고지마다 원고 여러 개를 두고, 원고마다 여러 장을 묶는다. 장 번호는 종이 오른쪽 위에 찍힌다. */
 const libOf = m => Book[m] || (Book[m] = { docs: [newDocObj(1)], cur: 0 });
 function newDocObj(n){ return { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: '', n, t: Date.now(), pages: [{ strokes: [] }], cur: 0 }; }
-function curBook(){ const L0 = libOf(state.mode); return L0.docs[L0.cur] || (L0.cur = 0, L0.docs[0]); }
+function curBook(){ if (typeof app !== 'undefined' && app.copy && Book.copy) return Book.copy; const L0 = libOf(state.mode); return L0.docs[L0.cur] || (L0.cur = 0, L0.docs[0]); }
 const curPage = () => { const b = curBook(); return b.pages[b.cur]; };
 const docTitle = d => d.title || `원고 ${d.n || 1}`;
 async function loadBooks(){
@@ -1986,6 +1986,7 @@ async function loadBooks(){
 function bookSave(){
   if (!Book.ready || !bookOn()) return;
   const p = curPage(), d = curBook(); p.strokes = state.strokes; p.t = d.t = Date.now();
+  if (app.copy) return;
   const m = state.mode; clearTimeout(Book.t);
   const save = () => { if (active) { Book.t = setTimeout(save, 600); return; } IDB.set(m, Book[m]); };
   Book.t = setTimeout(save, 1200);
@@ -1997,6 +1998,7 @@ function showPage(){
   state.strokes = curPage().strokes; dust.length = 0; crumbs.length = 0;
   if (typeof app !== 'undefined' && app.onNewSheet) app.onNewSheet();
   stampPaper(); redrawInk(); renderFx(); updatePageNo();
+  if (typeof app !== 'undefined' && app.copy) copySync();
 }
 // 장 번호: 원고지 오른쪽 위에 「( 2 / 5 )」 — 이 장이 몇째 장인지 / 모두 몇 장인지
 const paperBaseC = document.createElement('canvas');
@@ -2223,7 +2225,7 @@ pageNoEl.innerHTML = '<button class="pv" aria-label="앞 장">‹</button><span>
 // 앞 장·다음 장 버튼(손으로 넘기는 것과 똑같이 종이가 말려 넘어간다)
 function flipBy(dir){
   if (flip || tear) return; const b = curBook();
-  if (dir === 'next' && b.cur >= b.pages.length - 1) { toast('마지막 장이에요. 「장 추가」로 한 장 더 붙여요'); return; }
+  if (dir === 'next' && b.cur >= b.pages.length - 1) { if (app.copy) { copyNextStage(false); return; } toast('마지막 장이에요. 「장 추가」로 한 장 더 붙여요'); return; }
   const r = sheet.getBoundingClientRect();
   if (!startFlip(dir, dir === 'next' ? r.right - 4 : r.left + 4, r.top + r.height * .75)) return;
   if (dir === 'next') { flip.t = flip.aspect * .95; releaseFlip(-1); } else { flip.t = flip.aspect; releaseFlip(1); }
@@ -2235,6 +2237,7 @@ function startFlip(dir, cx, cy){
   const b = curBook();
   if (dir === 'prev' && b.cur === 0) { toast('첫 쪽이에요'); return null; }
   let added = false;
+  if (app.copy && dir === 'next' && b.cur === b.pages.length - 1) { copyNextStage(false); return null; }
   if (dir === 'next' && b.cur === b.pages.length - 1) {
     if (!state.strokes.length) { toast('빈 쪽이에요. 글씨를 쓰면 다음 쪽이 생겨요'); return null; }
     b.pages.push({ strokes: [] }); added = true;
@@ -2471,6 +2474,7 @@ function tearEnd(force){
 // 찢은 장은 버리지 않고 「찢은 장」에 모아 둔다(실수로 찢어도 되살릴 수 있게). 원고지·공책마다 최근 40장
 let lastTorn = null;
 function removeCurrentPage(){
+  if (app.copy) { curPage().strokes = []; lastTorn = null; showPage(); toast('찢고 새 장을 폈어요. 다시 따라 써 봐요'); return; }
   const d = curBook(), lib = libOf(state.mode);
   const page = d.pages[d.cur];
   if (page && page.strokes.length) {
@@ -2763,6 +2767,7 @@ app.onPenDown = () => { clearTimeout(recT); };
 app.marks = [];
 
 function setScreen(name){
+  if (name !== 'quick' && app.copy) { app.copy = false; Book.copy = null; delete document.body.dataset.copy; }   // 따라 쓰기 연습을 나가면 연습 공책을 닫는다
   app.screen = name;
   document.body.dataset.screen = name;
   $('#home').classList.toggle('show', name === 'home');
@@ -3568,18 +3573,29 @@ const QUICK = ['하늘에 별이 떠요', '토끼가 풀밭을 달려요', '친�
 const CP = { st: null, i: 0 };
 function copyResume(){ const a = store.get('copyAt', null); const st = a && STAGES.find(x => x.id === a.st); return st ? [st, a.i < st.items.length ? a.i : 0] : [STAGES[0], 0]; }
 function startCopy(stage, i = 0){
-  store.set('copyAt', { st: stage.id, i });
-  closeResult(); setScreen('quick'); app.copy = true; CP.st = stage; CP.i = i;
+  closeResult(); setScreen('quick'); app.copy = true; CP.st = stage;
   state.mode = 'notebook'; app.title = '';
-  const its = stage.items.slice(i, i + 2).map(x => x[0]);
-  app.copyItems = its;
-  app.layout = { rows: its.length * 2, minCols: Math.max(...stage.items.map(x => x[0].length)) };
-  state.strokes = []; clearLabels(); app.marks = [];
-  applyLayout();
+  const pages = []; for (let k = 0; k < stage.items.length; k += 2) pages.push({ strokes: [], cp: stage.items.slice(k, k + 2).map(x => x[0]) });
+  Book.copy = Object.assign(newDocObj(1), { title: `${stage.id}급 따라 쓰기`, pages, cur: clamp(Math.floor(i / 2), 0, pages.length - 1) });
+  app.layout = { rows: 4, minCols: Math.max(...stage.items.map(x => x[0].length)) };
+  clearLabels(); app.marks = [];
   document.body.dataset.copy = '1';
   $('#cpStageT').textContent = `${stage.id}급 · ${stage.title}`;
-  $('#qProg').textContent = `${Math.floor(i / 2) + 1} / ${Math.ceil(stage.items.length / 2)}`;
-  $('#cpPrev').disabled = i === 0;
+  state.strokes = Book.copy.pages[Book.copy.cur].strokes;
+  applyLayout(); showPage();
+}
+function copySync(){
+  const d = Book.copy; if (!d) return;
+  CP.i = d.cur * 2; app.copyItems = d.pages[d.cur].cp;
+  store.set('copyAt', { st: CP.st.id, i: CP.i });
+  $('#qProg').textContent = `${d.cur + 1} / ${d.pages.length}`;
+  $('#cpPrev').disabled = d.cur === 0;
+}
+function copyNextStage(done){
+  const nst = STAGES[STAGES.indexOf(CP.st) + 1];
+  if (!nst) { toast('마지막 급수까지 다 따라 썼어요! 이제 받아쓰기를 해 봐요'); store.set('copyAt', { st: STAGES[0].id, i: 0 }); setTimeout(() => { goHome(); openStages('dict'); }, 1200); return; }
+  toast(done ? `${CP.st.id}급 문장을 다 따라 썼어요! ${nst.id}급으로 넘어가요` : `${nst.id}급으로 넘어가요`);
+  sheet.classList.add('out'); setTimeout(() => { startCopy(nst, 0); sheet.classList.remove('out'); }, done ? 900 : 300);
 }
 function copyFill(){
   let n = 0, w = 0;
@@ -3587,7 +3603,7 @@ function copyFill(){
   return n ? w / n : 0;
 }
 function startQuick(){
-  app.copy = false; delete document.body.dataset.copy;
+  app.copy = false; delete document.body.dataset.copy; Book.copy = null;
   closeResult(); setScreen('quick');
   state.mode = 'notebook';
   app.title = '';   // 첫 줄 본보기와 겹치지 않게 제목은 비운다(툴바에 안내)
@@ -3597,12 +3613,7 @@ function startQuick(){
   $('#qProg').textContent = '위 글자를 보고 아래 칸에 한 글자씩 써요';
 }
 function drawQuickModel(){
-  if (app.copy) {   // 윗줄 칸에 문장을 정답 글씨체로
-    mctx.save(); mctx.setTransform(DPR, 0, 0, DPR, 0, 0); mctx.textAlign = 'center'; mctx.textBaseline = 'middle';
-    mctx.font = `${L.s * .66}px ${ansCss()}`; mctx.fillStyle = 'rgba(52,48,44,.82)';
-    (app.copyItems || []).forEach((t, k) => [...t].forEach((ch, c) => { if (ch === ' ' || c >= L.cols) return; const B = cellBox(k * 2, c); mctx.fillText(ch, B.x + B.s / 2, B.y + B.s * .54); }));
-    mctx.restore(); return;
-  }
+  if (app.copy) return;   // 따라 쓰기 연습 본보기는 종이에 찍혀 장과 함께 넘어간다
   mctx.save(); mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   mctx.textAlign = 'center'; mctx.textBaseline = 'middle';
   const fs = clamp(L.gap * L.s * .62, 12, 22);
@@ -3661,24 +3672,18 @@ function splitJamo(cp, ch){
   return out;
 }
 // 따라 쓰기 연습 넘기기: 다음(앞) 두 문장. 급수 끝이면 다음 급수로
-function copyGo(nx, done){
-  if (nx < 0) return;
-  if (nx >= CP.st.items.length) {
-    const nst = STAGES[STAGES.indexOf(CP.st) + 1];
-    if (!nst) { toast('마지막 급수까지 다 따라 썼어요! 이제 받아쓰기를 해 봐요'); store.set('copyAt', { st: STAGES[0].id, i: 0 }); setTimeout(() => { goHome(); openStages('dict'); }, 1200); return; }
-    toast(done ? `${CP.st.id}급 문장을 다 따라 썼어요! ${nst.id}급으로 넘어가요` : `${nst.id}급으로 넘어가요`);
-    sheet.classList.add('out'); setTimeout(() => { startCopy(nst, 0); sheet.classList.remove('out'); }, done ? 900 : 300); return;
-  }
-  sheet.classList.add('out'); setTimeout(() => { startCopy(CP.st, nx); sheet.classList.remove('out'); }, 300);
+function copyGo(dir, done){
+  const d = Book.copy; if (!d) return;
+  if (dir === 'next' && d.cur >= d.pages.length - 1) { copyNextStage(done); return; }
+  flipBy(dir);
 }
-$('#cpNext').addEventListener('click', () => copyGo(CP.i + 2));
-$('#cpPrev').addEventListener('click', () => copyGo(CP.i - 2));
+$('#cpNext').addEventListener('click', () => copyGo('next'));
+$('#cpPrev').addEventListener('click', () => copyGo('prev'));
 $('#cpStage').addEventListener('click', () => { goHome(); openStages('copy'); });
 $('#qDone').addEventListener('click', () => {
   if (app.copy) {   // 따라 쓰기 연습: 아랫줄을 거의 다 채워야 다음 문장으로
     if (copyFill() < .85) { toast('윗줄 글자를 보고 아랫줄에 다 따라 써 볼까요?'); return; }
-    const nx = CP.i + 2;
-    copyGo(nx, true);
+    copyGo('next', true);
     return;
   }
   let nSyl = 0, wrote = 0; const got = new Set();
@@ -3709,6 +3714,13 @@ const TUT_Q = [[0, 1], [2, 3], [4]];          // 장마다 본보기 문장
 const tutDoc = () => { const d = Book.ready && libOf('manuscript').docs[libOf('manuscript').cur]; return d && d.tut ? d : null; };
 const tutOn = () => app.screen === 'free' && state.mode === 'manuscript' && !!tutDoc();
 function stampTutModel(g){
+  if (app.copy) {   // 따라 쓰기 연습: 윗줄 칸에 본보기 문장
+    const pg = curPage(); if (!pg || !pg.cp) return;
+    const D = DPR; g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(52,48,44,.82)';
+    g.font = `${L.s * .66 * D}px ${ansCss()}`;
+    pg.cp.forEach((t, k) => [...t].forEach((ch, c) => { if (ch === ' ' || c >= L.cols) return; const B = cellBox(k * 2, c); g.fillText(ch, (B.x + B.s / 2) * D, (B.y + B.s * .54) * D); }));
+    g.restore(); return;
+  }
   if (!tutOn()) return; const pg = curPage(); if (!pg.q) return;
   const D = DPR; g.save(); g.setTransform(1, 0, 0, 1, 0, 0);
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(52,48,44,.8)';
@@ -3883,7 +3895,7 @@ function startFree(){
   state.strokes = Book.ready ? curPage().strokes : []; clearLabels(); applyLayout(); updatePageNo();
 }
 function goHome(){
-  app.copy = false; delete document.body.dataset.copy;
+  app.copy = false; delete document.body.dataset.copy; Book.copy = null;
   closeResult(); if (window.speechSynthesis) speechSynthesis.cancel();
   D.exam = null; delete document.body.dataset.exam; if (tutI >= 0 || document.body.dataset.tut) tutEnd(true);
   closeStages(); renderHome(); setScreen('home');
