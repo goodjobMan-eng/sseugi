@@ -67,7 +67,7 @@
   body[data-tut] #desk{bottom:92px}
   body[data-tut] #mode, body[data-tut] .size{display:none}
   #coach{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(720px,calc(100vw - 24px));min-height:68px;display:none;align-items:center;gap:14px;padding:12px 16px;background:#fffdf8;border-radius:16px;box-shadow:0 10px 30px -10px rgba(60,45,20,.45),0 0 0 1px rgba(60,45,20,.08);z-index:85;font-size:17px;line-height:1.45;color:#3a352d}
-  #tutSkip{display:none;position:fixed;top:calc(70px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));z-index:90;padding:8px 14px;border-radius:999px;background:rgba(255,253,248,.92);color:#6f665a;font-size:14.5px;box-shadow:0 0 0 1px rgba(60,45,20,.14),0 4px 12px -6px rgba(60,45,20,.4)}
+  #tutSkip{display:none;position:fixed;top:calc(70px + env(safe-area-inset-top,0px));right:calc(12px + env(safe-area-inset-right,0px));z-index:90;padding:8px 16px;border-radius:999px;background:rgba(255,253,248,.92);color:#5a5348;font-family:"Nanum Myeongjo","Noto Serif KR","Noto Serif CJK KR",serif;font-size:15.5px;font-weight:700;letter-spacing:-.02em;box-shadow:0 0 0 1px rgba(60,45,20,.14),0 4px 12px -6px rgba(60,45,20,.4)}
   body[data-tut] #tutSkip{display:block}
   #coach.show{display:flex} #coach .n{flex:none;width:34px;height:34px;border-radius:50%;background:#e9b949;color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px}
   #coach .t{flex:1} #coach .t small{display:block;color:#8a8072;font-size:13.5px;margin-top:2px}
@@ -449,7 +449,7 @@
     <div id="pouch" hidden></div>
   </div>
   <div id="stagePage"><div class="sp-paper">
-    <header><button class="hico" id="stageBack" title="덮기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><b>받아쓰기</b><small id="stepCap"></small></header>
+    <header><button class="hico" id="stageBack" title="덮기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><b id="stageHead">받아쓰기</b><small id="stepCap"></small></header>
     <div id="stageList"></div>
     <div id="weak"></div>
   </div></div>
@@ -3796,7 +3796,7 @@ $('#coachBtn').addEventListener('click', () => {
   if (st.finish) {
     const r = learnTut(); tutEnd(); store.set('tutDone', 1);
     toast(r.nSyl ? `글자 ${r.nSyl}개와 낱자 ${r.nJ}개를 익혔어요! 이제 받아쓰기 문장을 따라 써 봐요` : '이제 받아쓰기 문장을 따라 써 봐요');
-    setTimeout(() => startCopy(...copyResume()), 900);
+    setTimeout(() => { goHome(); openStages('copy'); }, 900);
     return;
   }
   if (st.wait === 'fill' && tutFill() < .5) { toast('아래 칸에 조금 더 따라 써 볼까요?'); return; }
@@ -3877,7 +3877,7 @@ function renderHome(){
   const next = STAGES.find(st => !rec.stats[st.id]) || STAGES[0];
   const pick = weak && weak.sc < .75 ? weak.st : next; app.pick = pick;
   $('#dictHint').textContent = `${pick.id} · ${pick.title}`;
-  $('#goDict').onclick = () => openStages();
+  $('#goDict').onclick = () => openStages('dict');
   const cap = $('#stepCap'), capOf = st => `${st.id} · ${st.title}`; cap.textContent = capOf(pick);
   const list = $('#stageList'); list.innerHTML = '';
   for (const st of STAGES) {   // 원고지 한 칸 = 한 단계. 잘하면 빨간 동그라미, 해 본 만큼 칸이 연두로 차오른다
@@ -3885,7 +3885,7 @@ function renderHome(){
     const b = document.createElement('button'); b.className = 'stage' + (st === pick ? ' rec' : ''); b.title = st.title + (pct === null ? '' : ` · ${pct}%`);
     b.innerHTML = (pct !== null ? `<i class="fill" style="height:${pct}%"></i>` : '') + `<span>${st.id}</span>`
       + (pct !== null && pct >= 80 ? `<svg class="ok" viewBox="0 0 40 40"><path d="M21 4.5c9 .5 15 7 14.5 15.5S27 35.5 19 35.5 4.5 29 5 19.5 12.5 4 22 5.5" fill="none" stroke="#d2402f" stroke-width="2.2" stroke-linecap="round" opacity=".85" transform="rotate(${(st.id * 37) % 40 - 20} 20 20)"/></svg>` : '');
-    b.onclick = () => { closeStages(); startDictation(st); };
+    b.onclick = () => { const m = stageMode; closeStages(); if (m === 'copy') startCopy(st, 0); else startDictation(st); };
     b.onpointerenter = () => { cap.textContent = capOf(st); }; b.onpointerleave = () => { cap.textContent = capOf(pick); };
     list.appendChild(b);
   }
@@ -3914,8 +3914,13 @@ for (const cv of document.querySelectorAll('.cover')) cv.addEventListener('click
   cv.classList.add('opening'); try { ensureAudio(); if (!playSample('turn', .8)) soundPage('flip'); } catch (er) {}
   setTimeout(() => { cv.dataset.go = 1; cv.click(); setTimeout(() => cv.classList.remove('opening'), 400); }, 560);
 }, true);
-function openStages(){ $('#stagePage').classList.add('show'); }
-function closeStages(){ $('#stagePage').classList.remove('show'); }
+// 단계 고르기 장: 받아쓰기('dict') 또는 문장 따라 쓰기 연습('copy')
+let stageMode = 'dict';
+function openStages(mode = 'dict'){
+  stageMode = mode; $('#stageHead').textContent = mode === 'copy' ? '어떤 급수를 연습할까요?' : '받아쓰기';
+  $('#stagePage').classList.add('show');
+}
+function closeStages(){ $('#stagePage').classList.remove('show'); stageMode = 'dict'; }
 $('#stageBack').addEventListener('click', closeStages);
 function openSheet(which){ $('#examBox').open = which === 'exam'; $('#setBox').open = which === 'set'; $('#homeSheet').classList.add('show'); if (which === 'exam') setExamUI(); }
 $('#openSet').addEventListener('click', () => openSheet('set'));
@@ -3924,7 +3929,7 @@ $('#closeSheet').addEventListener('click', () => $('#homeSheet').classList.remov
 $('#homeSheet').addEventListener('click', e => { if (e.target === $('#homeSheet')) $('#homeSheet').classList.remove('show'); });
 $('#goQuick').addEventListener('click', () => store.get('tutDone', 0) ? startCopy(...copyResume()) : startTutorial());
 // 오른쪽 위 '체험 넘기기': 튜토리얼을 끝내고 바로 문장 따라 쓰기(7단계부터). 넘긴 사람에게는 다시 튜토리얼을 보여 주지 않는다
-$('#tutSkip').addEventListener('click', () => { tutEnd(true); store.set('tutDone', 1); startCopy(...copyResume()); });
+$('#tutSkip').addEventListener('click', () => { tutEnd(true); store.set('tutDone', 1); goHome(); openStages('copy'); });
 $('#goFree').addEventListener('click', startFree);
 $('#homeBtn').addEventListener('click', goHome);
 $('#voiceSel').addEventListener('change', e => {
