@@ -2777,11 +2777,11 @@ const RN = 64, NN = 48, GRID = 8;
 const tmpC = document.createElement('canvas'); tmpC.width = tmpC.height = RN;
 const tctx = tmpC.getContext('2d', { willReadFrequently: true });
 const ANSWER_FONTS = [
-  { id: 'dodum', name: '교과서 돋움(나눔고딕)', css: '"SSG Dodum"' },   // ㅈ·ㅊ을 교과서처럼 두 획(ㄱ꼴+점)으로 쓰는 글꼴
-  { id: 'myeongjo', name: '나눔명조', css: '"SSG Myeongjo"' },
+  { id: 'myeongjo', name: '나눔명조', css: '"SSG Myeongjo"' },   // 기본: ㅈ·ㅊ을 교과서처럼 두 획(ㄱ꼴+점)으로 쓴다
+  { id: 'dodum', name: '교과서 돋움(나눔고딕)', css: '"SSG Dodum"' },
   { id: 'bon', name: '본명조(Noto Serif)', css: '"SSG Bonmyeongjo"' }
 ];
-let ansFont = store.get('ansFont', 'dodum');
+let ansFont = store.get('ansFont2', 'myeongjo');   // 기본 글씨체를 나눔명조로 바꾸며 저장 이름도 새로
 const ansCss = () => (ANSWER_FONTS.find(f => f.id === ansFont) || ANSWER_FONTS[0]).css + ',"Noto Sans KR","Malgun Gothic",sans-serif';
 const FONTS = ['"SSG Dodum"', '"SSG Myeongjo"', '"Noto Sans KR","Noto Sans CJK KR","Malgun Gothic","Apple SD Gothic Neo",sans-serif', '"Noto Serif KR","Noto Serif CJK KR","Batang","AppleMyungjo",serif'];
 
@@ -3919,7 +3919,7 @@ function setFontUI(){
   $('#fontSel').innerHTML = ANSWER_FONTS.map(f => `<option value="${f.id}"${f.id === ansFont ? ' selected' : ''}>${f.name}</option>`).join('');
   $('#fontPrev').style.fontFamily = ansCss();
 }
-$('#fontSel').addEventListener('change', e => { ansFont = e.target.value; store.set('ansFont', ansFont); setFontUI(); redrawMarks(); });
+$('#fontSel').addEventListener('change', e => { ansFont = e.target.value; store.set('ansFont2', ansFont); setFontUI(); redrawMarks(); });
 setFontUI();
 // 글꼴을 다 읽은 뒤 인식용 본보기를 만든다
 if (document.fonts) Promise.all(['"SSG Dodum"', '"SSG Myeongjo"', '"SSG Bonmyeongjo"'].map(f => document.fonts.load(`40px ${f}`, '가'))).then(() => { fontCache.clear(); redrawMarks(); }).catch(() => {});
