@@ -2024,7 +2024,8 @@ function stampPageNo(g, idx, total){
   g.fillText(`( ${idx + 1} / ${total} )`, (L.w - 16) * D, Math.max(14, Math.min(22, (L.gy || 30) * .45)) * D);
   if (L.nb || app.screen === 'dict') {   // 줄 번호는 장을 넘겨도 이어진다(1장 1~4 → 2장 5~8)
     g.fillStyle = 'rgba(200,76,58,.82)'; g.font = `${12 * D}px ${serif}`;
-    for (let r = 0; r < L.rows; r++) g.fillText(String(idx * L.rows + r + 1), (L.gx - 9) * D, (L.gy + r * L.s * (1 + L.gap) + L.s / 2) * D);
+    const nRows = app.screen === 'dict' && curPage().items ? curPage().items.length : L.rows;   // 받아쓰기 마지막 장: 문제가 있는 줄까지만 번호
+    for (let r = 0; r < nRows; r++) g.fillText(String(idx * L.rows + r + 1), (L.gx - 9) * D, (L.gy + r * L.s * (1 + L.gap) + L.s / 2) * D);
   }
   g.restore();
 }
@@ -2996,7 +2997,7 @@ function punctCell(a0){
     const tw = tx1 - tx0 + 1, th = ty1 - y0 + 1;
     ch = tw <= th * .38 ? '!' : '?';
   }
-  return { ch, s1: .9, conf: .3, alts: [ch, ...PUNCT.filter(x => x !== ch)], f: null };
+  return { ch, s1: .9, conf: .3, alts: [ch, ...PUNCT.filter(x => x !== ch)], f: null, ratio: h / Math.max(1, w) };
 }
 /* ═════════ 손글씨 인식 모델(인공지능) ═════════
    한글 2,350자(KS X 1001)를 알아보는 작은 합성곱 신경망. IBM tensorflow-hangul-recognition(Apache-2.0)의 방식대로
@@ -3114,7 +3115,12 @@ async function recognizeCell(r, c){
   // 문장부호 칸: 두 칸 배치(부호 뒤 빈칸 없음/있음)가 모두 부호면 부호로 읽고, 한쪽만 부호면 글자와 견주어 고른다
   let punctAlt = null;
   { const it = D.items[r]; if (it) { const cT = cellT(it[0])[c], oT = it[0][c];
-    if (PUNCT.includes(cT) && cT === oT) return punctCell(cellAlpha(r, c));
+    if (PUNCT.includes(cT) && cT === oT) {
+      const pr = punctCell(cellAlpha(r, c));
+      // 점·쉼표는 모양이 비슷하다: 정답 쪽으로 기운 애매한 모양이면 정답으로 본다(쉼표를 짧게 찍는 아이·글꼴이 많다)
+      if (pr && (pr.ch === '.' || pr.ch === ',') && (cT === '.' || cT === ',') && pr.ch !== cT && (cT === ',' ? pr.ratio >= .9 : pr.ratio <= 2.2)) pr.ch = cT;
+      return pr;
+    }
     if (PUNCT.includes(cT) || PUNCT.includes(oT)) punctAlt = punctCell(cellAlpha(r, c)); } }
   const al = cellAlpha(r, c), fi = featFromAlpha(al);
   if (!fi) return punctAlt;
