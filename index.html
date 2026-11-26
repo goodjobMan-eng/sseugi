@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>쓰기공책 · 받아쓰기</title>
+<script>
+/* 오류 알림: 어떤 기기에서 스크립트가 멈추면 화면 아래에 까닭을 작게 보여 준다(고칠 때 쓰려고) */
+(function(){ function show(m){ try { var d=document.getElementById('errBox'); if(!d){ d=document.createElement('div'); d.id='errBox'; d.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:9999;padding:8px 10px;border-radius:8px;background:rgba(160,40,30,.92);color:#fff;font:12px/1.4 system-ui,sans-serif;white-space:pre-wrap;pointer-events:none'; (document.body||document.documentElement).appendChild(d); } d.textContent=(d.textContent?d.textContent+'\n':'')+'오류: '+m; } catch(e){} }
+  window.addEventListener('error', function(e){ show((e.message||'')+' @'+(e.lineno||'?')+':'+(e.colno||'?')); });
+  window.addEventListener('unhandledrejection', function(e){ var r=e.reason; show('promise: '+(r&&(r.message||r))+''); }); })();
+</script>
 <style>
   :root{
     --desk:#ecebe7;
