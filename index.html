@@ -2952,14 +2952,17 @@ function pack(bits){ let s = ''; for (let i = 0; i < bits.length; i += 8) { let 
 function unpack(b, n){ const s = atob(b), out = new Uint8Array(n); for (let i = 0; i < n; i++) out[i] = (s.charCodeAt(i >> 3) >> (i & 7)) & 1; return out; }
 
 // 문장 부호 칸: 모양 특징보다 크기·생김새가 확실하다(점 하나는 64칸으로 키우면 다른 부호와 헷갈림)
-function punctCell(a){
-  let mx = 0; for (const v of a) if (v > mx) mx = v; if (mx < .05) return null;
-  const thr = Math.max(.06, mx * .3); let n = 0, x0 = RN, y0 = RN, x1 = -1, y1 = -1;
+function punctCell(a0){
+  // 연필 결 때문에 획이 점점이 끊겨 보이므로, 이웃 칸과 살짝 섞어(흐리게) 이어 준 뒤 본다
+  const a = new Float32Array(RN * RN);
+  for (let y = 0; y < RN; y++) for (let x = 0; x < RN; x++) { let m = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const yy = y + dy, xx = x + dx; if (yy >= 0 && yy < RN && xx >= 0 && xx < RN && a0[yy * RN + xx] > m) m = a0[yy * RN + xx]; } a[y * RN + x] = m; }
+  let mx = 0; for (const v of a) if (v > mx) mx = v; if (mx < .03) return null;
+  const thr = Math.max(.03, mx * .15); let n = 0, x0 = RN, y0 = RN, x1 = -1, y1 = -1;
   for (let y = 0; y < RN; y++) for (let x = 0; x < RN; x++) if (a[y * RN + x] > thr) { n++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
   if (n < 3) return null;
   const w = x1 - x0 + 1, h = y1 - y0 + 1;
   let ch;
-  if (h <= 24 && w <= 24) ch = h > w * 1.5 ? ',' : '.';
+  if (Math.max(h, w) <= 15 || (h <= 22 && w <= 12)) ch = h > w * 1.45 ? ',' : '.';   // 칸의 4분의 1이 안 되는 작은 부호: 점·쉼표
   else {   // 큰 부호: 윗부분(점 위)이 가는 막대면 「!」, 휘어 넓으면 「?」
     let tx0 = RN, tx1 = -1, ty1 = y0;
     for (let y = y0; y <= y1; y++) { let row = 0; for (let x = x0; x <= x1; x++) if (a[y * RN + x] > thr) { row++; if (x < tx0) tx0 = x; if (x > tx1) tx1 = x; }
@@ -3078,6 +3081,7 @@ const HNW = (() => {
     top: (P, k) => { const L = lab(); if (!L) return HN.top(P, k); return [...P.keys()].sort((a, b) => P[b] - P[a]).slice(0, k).map(i => [L.labels[i], P[i]]); }
   };
 })();
+const ANS_PRIOR = 6;   // 정답 글자 믿음 배수(손글씨 글꼴 시험으로 정함)
 async function recognizeCell(r, c){
   { const it = D.items[r]; if (it && PUNCT.includes(it[0][c])) return punctCell(cellAlpha(r, c)); }
   const al = cellAlpha(r, c), fi = featFromAlpha(al);
@@ -3095,7 +3099,9 @@ async function recognizeCell(r, c){
   const P = HN.ready() ? await HNW.predict(al, RN) : null;
   if (P) {   // 인공지능 모델: 후보(정답·이웃 글자·흔히 틀리는 모양) 가운데 가장 그럴듯한 것. 아이 글씨 견본과 아주 닮으면 조금 더 믿는다
     const top = HNW.top(P, 5);
-    const sc = [...set].map(ch => { let p = HNW.prob(P, ch); const sy = rec.syl[ch]; if (sy) { let m = 0; for (const b of sy) m = Math.max(m, sim(fi.f, unpackF(b))); if (m > .9) p += (m - .9) * 2; } return [ch, p]; }).sort((a, b) => b[1] - a[1]);
+    // 받아쓰기는 정답이 정해져 있다: 그 칸의 정답 글자는 미리 더 믿고(닮은꼴이 훨씬 또렷할 때만 틀렸다고 본다)
+    const want = it ? it[0][c] : null;
+    const sc = [...set].map(ch => { let p = HNW.prob(P, ch); if (ch === want) p *= (window.__PRIOR || ANS_PRIOR); const sy = rec.syl[ch]; if (sy) { let m = 0; for (const b of sy) m = Math.max(m, sim(fi.f, unpackF(b))); if (m > .9) p += (m - .9) * 2; } return [ch, p]; }).sort((a, b) => b[1] - a[1]);
     const best = sc[0] || ['?', 0];
     let ch;
     if (top[0][1] > .5 && !set.has(top[0][0]) && top[0][1] > best[1] * 4) ch = top[0][0];   // 후보 밖의 글자를 또렷이 썼다
@@ -3545,7 +3551,25 @@ $('#prevJ').addEventListener('click', () => { if (E.i > 0) { E.i--; state.stroke
    ① 그 글자 자체(글자 견본) ② 글자를 자리(초성·중성·종성)대로 갈라 얻은 낱자 견본 → 다른 글자도 내 손 글씨로 맞춰 볼 수 있다.
    문장은 자주 쓰는 자음 14개와 홀소리 대부분, 받침 ㄱㄴㄹㅁㅂㅇ이 고루 들어가게 골랐다. */
 const QUICK = ['하늘에 별이 떠요', '토끼가 풀밭을 달려요', '친구랑 김밥을 먹어요', '작은 새가 노래해요', '키 큰 형이 야구를 해요'];
+/* 받아쓰기 문장 따라 쓰기: 윗줄에 문장, 아랫줄에 따라 쓴다. 두 문장씩, 다 쓰면 다음 */
+const CP = { st: null, i: 0 };
+function startCopy(stage, i = 0){
+  closeResult(); setScreen('quick'); app.copy = true; CP.st = stage; CP.i = i;
+  state.mode = 'notebook'; app.title = '';
+  const its = stage.items.slice(i, i + 2).map(x => x[0]);
+  app.copyItems = its;
+  app.layout = { rows: its.length * 2, minCols: Math.max(...stage.items.map(x => x[0].length)) };
+  state.strokes = []; clearLabels(); app.marks = [];
+  applyLayout();
+  $('#qProg').textContent = `${stage.id} · ${stage.title}  ${Math.min(i + 2, stage.items.length)}/${stage.items.length}`;
+}
+function copyFill(){
+  let n = 0, w = 0;
+  (app.copyItems || []).forEach((t, k) => [...t].forEach((ch, c) => { if (ch === ' ' || c >= L.cols) return; n++; if (binarize(cellAlpha(k * 2 + 1, c))) w++; }));
+  return n ? w / n : 0;
+}
 function startQuick(){
+  app.copy = false;
   closeResult(); setScreen('quick');
   state.mode = 'notebook';
   app.title = '';   // 첫 줄 본보기와 겹치지 않게 제목은 비운다(툴바에 안내)
@@ -3555,6 +3579,12 @@ function startQuick(){
   $('#qProg').textContent = '위 글자를 보고 아래 칸에 한 글자씩 써요';
 }
 function drawQuickModel(){
+  if (app.copy) {   // 윗줄 칸에 문장을 정답 글씨체로
+    mctx.save(); mctx.setTransform(DPR, 0, 0, DPR, 0, 0); mctx.textAlign = 'center'; mctx.textBaseline = 'middle';
+    mctx.font = `${L.s * .66}px ${ansCss()}`; mctx.fillStyle = 'rgba(52,48,44,.82)';
+    (app.copyItems || []).forEach((t, k) => [...t].forEach((ch, c) => { if (ch === ' ' || c >= L.cols) return; const B = cellBox(k * 2, c); mctx.fillText(ch, B.x + B.s / 2, B.y + B.s * .54); }));
+    mctx.restore(); return;
+  }
   mctx.save(); mctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   mctx.textAlign = 'center'; mctx.textBaseline = 'middle';
   const fs = clamp(L.gap * L.s * .62, 12, 22);
@@ -3613,6 +3643,13 @@ function splitJamo(cp, ch){
   return out;
 }
 $('#qDone').addEventListener('click', () => {
+  if (app.copy) {   // 따라 쓰기 연습: 아랫줄을 거의 다 채워야 다음 문장으로
+    if (copyFill() < .85) { toast('윗줄 글자를 보고 아랫줄에 다 따라 써 볼까요?'); return; }
+    const nx = CP.i + 2;
+    if (nx >= CP.st.items.length) { toast('이 단계 문장을 다 따라 썼어요! 이제 받아쓰기를 해 봐요'); setTimeout(goHome, 1200); return; }
+    sheet.classList.add('out'); setTimeout(() => { startCopy(CP.st, nx); sheet.classList.remove('out'); }, 300);
+    return;
+  }
   let nSyl = 0, wrote = 0; const got = new Set();
   QUICK.forEach((t, r) => [...t].forEach((ch, c) => {
     if (ch === ' ' || r >= L.rows || c >= L.cols) return;
@@ -3649,10 +3686,14 @@ function stampTutModel(g){
   g.restore();
 }
 // 따라 쓴 칸이 얼마나 찼는지(0~1)
-function tutFill(){
-  const pg = curPage(); if (!pg || !pg.q) return 0; let n = 0, w = 0;
-  pg.q.forEach((qi, k) => [...QUICK[qi]].forEach((ch, c) => { if (ch === ' ') return; n++; if (binarize(cellAlpha(k * 2 + 1, c))) w++; }));
-  return n ? w / n : 0;
+const tutCells = new Map();   // 장 → 글씨가 든 칸 모음
+function tutTargets(pg){ const out = []; pg.q.forEach((qi, k) => [...QUICK[qi]].forEach((ch, c) => { if (ch !== ' ' && c < L.cols) out.push((k * 2 + 1) + ',' + c); })); return out; }
+function tutFill(st){
+  const pg = curPage(); if (!pg || !pg.q) return 0;
+  const tg = tutTargets(pg); let set = tutCells.get(pg);
+  if (!set) { set = new Set(tg.filter(k => { const [r, c] = k.split(',').map(Number); return binarize(cellAlpha(r, c)); })); tutCells.set(pg, set); }
+  else if (st) for (const k of cellsOf(st)) { if (!tg.includes(k)) continue; const [r, c] = k.split(',').map(Number); if (binarize(cellAlpha(r, c))) set.add(k); else set.delete(k); }
+  return tg.length ? set.size / tg.length : 0;
 }
 function learnTut(){
   const d = tutDoc(); if (!d) return { nSyl: 0, nJ: 0, wrote: 0 };
@@ -3679,12 +3720,12 @@ const edgeRect = side => { const r = sheet.getBoundingClientRect(); return side 
 const elRect = sel => () => { const e = $(sel); return e && e.offsetParent ? e.getBoundingClientRect() : null; };
 const TUT = [
   { t: '위 칸의 글자를 보고, 바로 아래 칸에 똑같이 써 보세요.', sub: '한 칸에 한 글자씩, 칸에 꽉 차게 써요.', wait: 'ink3' },
-  { t: '글자가 마음에 안 들면 지우개로 지워요.', sub: '지우개를 누르고 글자를 문질러 보세요. 지우개 옆 ▾를 누르면 다른 지우개도 골라요.', target: elRect('#erBtn'), wait: 'erase', skip: true },
-  { t: '연필을 다시 골라 이 장을 끝까지 따라 써요.', sub: '연필 옆 ▾를 누르면 다른 필기구도 골라요.', target: elRect('#penBtn'), wait: 'fill', btn: '다 썼어요' },
+  { t: '글자가 마음에 안 들면 지우개로 지워요.', sub: '지우개를 누르고 글자를 문질러 보세요. 지우개 옆 ▾를 누르면 다른 지우개도 골라요.', target: elRect('#erBtn'), wait: 'erase' },
+  { t: '연필을 다시 골라 이 장을 끝까지 따라 써요.', sub: '연필 옆 ▾를 누르면 다른 필기구도 골라요.', target: elRect('#penBtn'), wait: 'fill' },
   { t: '이제 장을 넘겨 볼까요?', sub: '종이 오른쪽 끝을 손가락으로 잡고 왼쪽으로 쭉 넘겨요.', target: () => edgeRect('right'), hand: 'right', wait: 'page1' },
-  { t: '이 장도 위 글자를 보고 따라 써요.', sub: '앞 장을 다시 보고 싶으면 왼쪽 끝을 잡고 오른쪽으로 넘기면 돼요.', wait: 'fill', btn: '다 썼어요' },
+  { t: '이 장도 위 글자를 보고 따라 써요.', sub: '앞 장을 다시 보고 싶으면 왼쪽 끝을 잡고 오른쪽으로 넘기면 돼요.', wait: 'fill' },
   { t: '다음 장으로 넘겨요.', sub: '오른쪽 끝을 잡고 왼쪽으로!', target: () => edgeRect('right'), hand: 'right', wait: 'page2' },
-  { t: '마지막 문장이에요. 따라 써요.', wait: 'fill', btn: '다 썼어요' },
+  { t: '마지막 문장이에요. 따라 써요.', wait: 'fill' },
   { t: '「장 추가」를 누르면 원고지가 한 장 더 붙어요.', sub: '눌러 보세요.', target: elRect('#newsheet'), wait: 'add' },
   { t: '잘못 쓴 장은 찢을 수 있어요. 이 빈 장을 찢어 볼까요?', sub: '종이 위쪽 끝을 잡고 아래로 쭉 내려요. 「이 장 찢기」 버튼으로도 돼요.', target: () => edgeRect('top'), hand: 'top', wait: 'tear' },
   { t: '찢은 장도 버려지지 않아요.', sub: '「원고함」을 열어 보세요. 원고에 제목을 붙여 저장하고, 찢은 장을 되살릴 수 있어요.', target: elRect('#save'), wait: 'docs' },
@@ -3696,7 +3737,7 @@ function tutShow(){
   $('#coachN').textContent = tutI + 1;
   $('#coachT').innerHTML = esc(st.t) + (st.sub ? `<small>${esc(st.sub)}</small>` : '');
   $('#coachBtn').textContent = st.btn || '알았어요'; $('#coachBtn').style.display = st.btn ? '' : 'none';
-  $('#coachSkip').style.display = st.skip || (!st.btn && st.wait) ? '' : 'none';
+  $('#coachSkip').style.display = 'none';   // 튜토리얼은 시킨 것을 해야 넘어간다
   c.classList.add('show'); tutPoint();
 }
 function tutPoint(){
@@ -3709,12 +3750,12 @@ function tutPoint(){
 }
 function tutNext(){ tutI++; tutInk = 0; if (tutI >= TUT.length) return tutEnd(); tutShow(); }
 const tutLater = ms => { const i = tutI; setTimeout(() => { if (tutI === i) tutNext(); }, ms); };   // 그사이 다른 일로 이미 넘어갔으면 또 넘기지 않는다
-function tutEvent(ev){
+function tutEvent(ev, st){
   if (tutI < 0) return; const w = TUT[tutI] && TUT[tutI].wait; const d = tutDoc();
   if (!tutOn()) { if (ev === 'page' && !d) tutEnd(true); return; }
   if (w === 'ink3' && ev === 'ink' && ++tutInk >= 3) return tutNext();
   if (w === 'erase' && ev === 'erase') return tutNext();
-  if (w === 'fill' && ev === 'ink' && tutFill() >= .85) return tutLater(400);
+  if (w === 'fill' && (ev === 'ink' || ev === 'erase') && tutFill(st) >= .85) return tutLater(400);
   if (w === 'page1' && ev === 'page' && d.cur === 1) return tutNext();
   if (w === 'page2' && ev === 'page' && d.cur === 2) return tutNext();
   if (w === 'add' && ev === 'page' && d.pages.length > 3 && !d.pages[d.cur].q) return tutNext();
@@ -3743,17 +3784,18 @@ function startTutorial(){
 $('#coachBtn').addEventListener('click', () => {
   const st = TUT[tutI]; if (!st) return;
   if (st.finish) {
-    const r = learnTut(); tutEnd();
-    toast(r.nSyl ? `글자 ${r.nSyl}개와 낱자 ${r.nJ}개를 익혔어요! 이제 내 글씨를 더 잘 알아봐요` : '따라 쓴 글씨가 적어서 익히지 못했어요. 다음에 다시 해 봐요');
+    const r = learnTut(); tutEnd(); store.set('tutDone', 1);
+    toast(r.nSyl ? `글자 ${r.nSyl}개와 낱자 ${r.nJ}개를 익혔어요! 이제 받아쓰기 문장을 따라 써 봐요` : '이제 받아쓰기 문장을 따라 써 봐요');
+    setTimeout(() => startCopy(app.pick || STAGES[0]), 900);
     return;
   }
   if (st.wait === 'fill' && tutFill() < .5) { toast('아래 칸에 조금 더 따라 써 볼까요?'); return; }
   tutNext();
 });
-$('#coachSkip').addEventListener('click', () => tutNext());
+
 window.addEventListener('resize', () => tutEvent('resize'));
 // 기존 동작에 귀를 단다: 획, 장 바뀜, 찢기, 원고함
-{ const prev = app.onStrokeEnd; app.onStrokeEnd = st => { if (prev) prev(st); if (tutI >= 0 && st) tutEvent(st.tool === 'eraser' ? 'erase' : 'ink'); }; }
+{ const prev = app.onStrokeEnd; app.onStrokeEnd = st => { if (prev) prev(st); if (tutI >= 0 && st) tutEvent(st.tool === 'eraser' ? 'erase' : 'ink', st); }; }
 { const f = showPage; showPage = function(){ const r = f.apply(this, arguments); tutEvent('page'); return r; }; }
 { const f = removeCurrentPage; removeCurrentPage = function(){ const r = f.apply(this, arguments); tutEvent('tear'); return r; }; }
 { const f = openDocs; openDocs = function(){ const r = f.apply(this, arguments); tutEvent('docs'); return r; }; }
@@ -3811,6 +3853,7 @@ function startFree(){
   state.strokes = Book.ready ? curPage().strokes : []; clearLabels(); applyLayout(); updatePageNo();
 }
 function goHome(){
+  app.copy = false;
   closeResult(); if (window.speechSynthesis) speechSynthesis.cancel();
   D.exam = null; delete document.body.dataset.exam; if (tutI >= 0 || document.body.dataset.tut) tutEnd(true);
   closeStages(); renderHome(); setScreen('home');
@@ -3823,7 +3866,7 @@ function renderHome(){
   let weak = null;
   for (const st of STAGES) { const sc = stageScore(st.id); if (sc !== null && (!weak || sc < weak.sc)) weak = { st, sc }; }
   const next = STAGES.find(st => !rec.stats[st.id]) || STAGES[0];
-  const pick = weak && weak.sc < .75 ? weak.st : next;
+  const pick = weak && weak.sc < .75 ? weak.st : next; app.pick = pick;
   $('#dictHint').textContent = `${pick.id} · ${pick.title}`;
   $('#goDict').onclick = () => openStages();
   const cap = $('#stepCap'), capOf = st => `${st.id} · ${st.title}`; cap.textContent = capOf(pick);
@@ -3870,7 +3913,7 @@ $('#openSet').addEventListener('click', () => openSheet('set'));
 $('#openTeacher').addEventListener('click', () => openSheet('exam'));
 $('#closeSheet').addEventListener('click', () => $('#homeSheet').classList.remove('show'));
 $('#homeSheet').addEventListener('click', e => { if (e.target === $('#homeSheet')) $('#homeSheet').classList.remove('show'); });
-$('#goQuick').addEventListener('click', () => startTutorial());
+$('#goQuick').addEventListener('click', () => store.get('tutDone', 0) ? startCopy(app.pick || STAGES[0]) : startTutorial());
 $('#goFree').addEventListener('click', startFree);
 $('#homeBtn').addEventListener('click', goHome);
 $('#voiceSel').addEventListener('change', e => {
