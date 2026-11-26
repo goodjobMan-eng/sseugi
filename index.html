@@ -747,7 +747,7 @@ class Stroke {
     const hole = shape(pad), fillP = shape(0);
     for (const x of new Set([g, p, r])) if (x) x.fill(hole);   // 아래 글씨를 덮는다
     const t = this.lay.t;
-    if (t) { t.save(); t.globalCompositeOperation = E.cover === 'tape' ? 'source-over' : 'destination-out'; t.fillStyle = '#000'; t.fill(fillP); t.restore(); t._dirty = true; }
+    if (t) { t.save(); t.globalCompositeOperation = 'source-over'; t.fillStyle = E.cover === 'tape' ? '#f00' : '#0f0'; t.fill(fillP); t.restore(); t._dirty = true; }
     if (c) {
       c.fill(fillP);
       if (E.cover === 'tape' && this.v != null) {   // 천천히 끌면 테이프가 밀려 가로 주름이 잡힌다(그늘 선 + 바로 옆 밝은 선)
@@ -772,11 +772,14 @@ class Stroke {
     const cv = m.canvas;
     if (m._dirty !== false) { m._md = m.getImageData(0, 0, cv.width, cv.height).data; m._dirty = false; }
     const x = P.x | 0, y = P.y | 0;
-    return x >= 0 && y >= 0 && x < cv.width && y < cv.height && m._md[(y * cv.width + x) * 4 + 3] > 128;
+    if (x < 0 || y < 0 || x >= cv.width || y >= cv.height) return false;
+    const i = (y * cv.width + x) * 4, d = m._md;
+    return d[i + 3] > 128 ? (d[i] > d[i + 1] ? 'tape' : 'fluid') : false;
   }
   slip(P){   // 테이프 위면 묻는 양을 줄이고(0~1), 너무 세게 누르면 벗긴다. 미끄러져 아예 안 묻는 곳은 -1
-    if (!this.onTape(P)) return 1;
+    const on = this.onTape(P); if (!on) return 1;
     const rng = this.rng;
+    if (on === 'fluid') return rng() < .3 ? -1 : .4;   // 수정액: 매끈하게 굳은 막이라 잘 안 묻는다(벗겨지지는 않음)
     if (this.rp && P.p > .9 && (this.peels || 0) < 2 && rng() < .03) this.peel(P);
     return rng() < .35 ? -1 : .35;
   }
@@ -1391,7 +1394,7 @@ function leadClick(){
   toast('딸깍! 샤프심이 나왔어요');
   if (typeof drawGauge === 'function') drawGauge();
 }
-function leadEmpty(){ toast(isTouchPen() ? '샤프심이 다 닳았어요. 펜 버튼을 누르거나 종이를 톡톡 두 번!' : '샤프심이 다 닳았어요. 종이를 톡톡 두 번 두드려요'); if (typeof drawGauge === 'function') drawGauge(); }
+function leadEmpty(){ toast(isTouchPen() ? '샤프심이 다 닳았어요. 펜 옆 버튼을 눌러 딸깍!' : '샤프심이 다 닳았어요. 오른쪽 단추를 눌러 딸깍!'); if (typeof drawGauge === 'function') drawGauge(); }
 const isTouchPen = () => state.penSeen;
 const sharpOn = () => state.pen === 'sharp' && state.tool !== 'eraser';
 function leadButton(ev){   // 갤럭시 S펜 옆 버튼(누르는 순간 한 번)
@@ -1399,20 +1402,6 @@ function leadButton(ev){   // 갤럭시 S펜 옆 버튼(누르는 순간 한 번
   const on = !!(ev.buttons & 2);
   if (on && !leadBtn) leadClick();
   leadBtn = on; return on;
-}
-const taps = [];   // 톡톡 두 번: 짧고 거의 움직이지 않은 두 번의 터치가 0.4초 안에
-function noteTap(ev, down){
-  if (!sharpOn()) return;
-  if (down) { taps.cur = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, t: ev.timeStamp }; return; }
-  const c = taps.cur; if (!c || c.id !== ev.pointerId) return; taps.cur = null;
-  if (ev.timeStamp - c.t > 250 || Math.hypot(ev.clientX - c.x, ev.clientY - c.y) > 8) { taps.length = 0; return; }
-  const last = taps[taps.length - 1], st = state.strokes[state.strokes.length - 1];
-  taps.push({ t: ev.timeStamp, st: st && st === taps.lastSt ? st : null });
-  if (last && ev.timeStamp - last.t < 420) {
-    const rm = new Set(taps.slice(-2).map(x => x.st).filter(Boolean));
-    if (rm.size) { state.strokes = state.strokes.filter(x => !rm.has(x)); if (typeof bookOn === 'function' && bookOn() && Book.ready) curPage().strokes = state.strokes; redrawInk(); if (typeof bookSave === 'function') bookSave(); }
-    taps.length = 0; leadClick();
-  }
 }
 function isEraserEvent(ev){ return ev.pointerType === 'pen' && ((ev.buttons & 32) || (ev.buttons & 2)); }
 
@@ -1430,8 +1419,8 @@ sheet.addEventListener('pointerdown', ev => {
   }
   if (active) return;
   if (leadButton(ev)) { ev.preventDefault(); return; }
+  if (ev.pointerType === 'mouse' && ev.button === 2 && sharpOn()) { ev.preventDefault(); leadClick(); return; }   // 마우스 오른쪽 단추 = 펜 옆 버튼
   if (ev.pointerType === 'mouse' && ev.button !== 0) return;
-  noteTap(ev, true);
   if (sharpOn() && !isEraserEvent(ev) && lead <= 0) { ev.preventDefault(); leadEmpty(); return; }
   ev.preventDefault();
   try { sheet.setPointerCapture(ev.pointerId); } catch (e) {}
@@ -1540,7 +1529,7 @@ function finish(ev){
   if (press) { press.up = performance.now(); kickFx(); }
   active.r.end();
   const st = active.st;
-  state.strokes.push(st); taps.lastSt = st;
+  state.strokes.push(st);
   active = null;
   lastTorn = null;
   bookSave();
@@ -1548,7 +1537,6 @@ function finish(ev){
   if (app.onStrokeEnd) app.onStrokeEnd(st);
 }
 sheet.addEventListener('pointerup', finish);
-sheet.addEventListener('pointerup', ev => noteTap(ev, false));
 sheet.addEventListener('pointercancel', finish);
 sheet.addEventListener('lostpointercapture', finish);
 function brushWithHand(ev){
