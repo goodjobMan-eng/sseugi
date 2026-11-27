@@ -453,6 +453,9 @@
   #penMenu [hidden],#erMenu [hidden]{display:none!important}   /* 안 산 도구는 메뉴에서 확실히 숨긴다 */
   #exGo{display:flex;width:100%;min-height:60px;margin:12px 0 4px;justify-content:center;font-size:21px;font-weight:700;border-radius:14px;letter-spacing:.05em}
   #stageBack{position:fixed;left:max(12px,env(safe-area-inset-left,0px));top:calc(10px + env(safe-area-inset-top,0px));width:44px;height:40px;z-index:5;border-radius:10px}   /* 다른 화면의 '처음 화면' 단추와 같은 자리·같은 모양 */
+  #stageExtra{display:flex;gap:10px;margin-top:14px} #stageExtra[hidden]{display:none}
+  #stageExtra .xbook{display:flex;flex-direction:column;height:auto;min-height:0;line-height:1.25;align-items:flex-start;gap:2px;padding:12px 18px 11px 22px;border-radius:4px 10px 10px 4px;background:linear-gradient(90deg,#5b3a26 0 7px,#7a4e33 7px);color:#f6ead2;box-shadow:0 2px 5px rgba(60,35,20,.28),inset 0 0 0 1px rgba(255,235,200,.12);font-family:"Nanum Myeongjo","Noto Serif KR",serif;cursor:pointer;transition:transform .15s}
+  #stageExtra .xbook b{font-size:19px;font-weight:800;letter-spacing:.08em} #stageExtra .xbook small{font-size:12px;opacity:.8} #stageExtra .xbook:hover{transform:translateY(-2px)}
   .cs-shop{margin-top:22px;padding:14px 18px 18px;background:#fbf8f0;border-radius:6px;box-shadow:0 2px 3px rgba(60,40,20,.12),0 18px 30px -20px rgba(60,40,20,.4)}
   .cs-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;font-family:"Nanum Myeongjo","Noto Serif KR",serif} .cs-h b{font-size:18px} .cs-h small{font-size:13px;color:var(--ink-soft);font-family:inherit}
   .cs-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:12px}
@@ -543,6 +546,7 @@
   <div id="stagePage"><div class="sp-paper">
     <header><button class="hico" id="stageBack" title="처음 화면"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg></button><b id="stageHead">받아쓰기</b><small id="stepCap"></small></header>
     <div id="stageList"></div>
+    <div id="stageExtra" hidden></div>
     <div id="weak"></div>
   </div></div>
   <div id="caseSheet"><div class="cs-wrap">
@@ -4044,16 +4048,19 @@ $('#prevJ').addEventListener('click', () => { if (E.i > 0) { E.i--; state.stroke
 const QUICK = ['하늘에 별이 떠요', '토끼가 풀밭을 달려요', '친구랑 김밥을 먹어요', '작은 새가 노래해요', '키 큰 형이 야구를 해요'];
 /* 받아쓰기 문장 따라 쓰기: 윗줄에 문장, 아랫줄에 따라 쓴다. 두 문장씩, 다 쓰면 다음 */
 const CP = { st: null, i: 0 };
-function copyResume(){ const a = store.get('copyAt', null); const st = a && STAGES.find(x => x.id === a.st); return st ? [st, a.i < st.items.length ? a.i : 0] : [STAGES[0], 0]; }
+// 따라 쓰기 전용 묶음: 급수와 따로 고르는 옛 지혜 문장(명심보감의 뜻을 아이 말로 옮김)
+const COPY_EXTRA = [{ id: 'msbg', extra: true, title: '명심보감', sub: '옛 지혜 문장', items: [['착한 일은 작아도 꼭 하자'], ['나쁜 일은 작아도 하지 말자'], ['효도하면 자식도 효도한다'], ['한 번 참으면 백 날이 편하다'], ['부지런함은 값없는 보배다'], ['조심함은 몸을 지키는 부적이다'], ['입은 사람을 해치는 도끼다'], ['남의 허물을 말하지 말자'], ['배움을 내일로 미루지 말자'], ['겪어 보아야 지혜가 자란다']] }];
+const stLabel = st => st.extra ? st.title : `${st.id}급 · ${st.title}`;
+function copyResume(){ const a = store.get('copyAt', null); const st = a && (STAGES.find(x => x.id === a.st) || COPY_EXTRA.find(x => x.id === a.st)); return st ? [st, a.i < st.items.length ? a.i : 0] : [STAGES[0], 0]; }
 function startCopy(stage, i = 0){
   closeResult(); setScreen('quick'); app.copy = true; CP.st = stage;
   state.mode = 'notebook'; app.title = '';
   const pages = []; for (let k = 0; k < stage.items.length; k += 2) pages.push({ strokes: [], cp: stage.items.slice(k, k + 2).map(x => x[0]) });
-  Book.copy = Object.assign(newDocObj(1), { title: `${stage.id}급 따라 쓰기`, pages, cur: clamp(Math.floor(i / 2), 0, pages.length - 1) });
+  Book.copy = Object.assign(newDocObj(1), { title: stage.extra ? `${stage.title} 따라 쓰기` : `${stage.id}급 따라 쓰기`, pages, cur: clamp(Math.floor(i / 2), 0, pages.length - 1) });
   app.layout = { rows: 4, minCols: Math.max(...stage.items.map(x => x[0].length)) };
   clearLabels(); app.marks = [];
   document.body.dataset.copy = '1';
-  $('#cpStageT').textContent = `${stage.id}급 · ${stage.title}`;
+  $('#cpStageT').textContent = stLabel(stage);
   state.strokes = Book.copy.pages[Book.copy.cur].strokes;
   applyLayout(); showPage();
 }
@@ -4065,6 +4072,7 @@ function copySync(){
   $('#cpPrev').disabled = d.cur === 0;
 }
 function copyNextStage(done){
+  if (CP.st.extra) { toast(done ? `${CP.st.title} 문장을 다 따라 썼어요!` : '다른 문장을 골라 봐요'); setTimeout(() => { goHome(); openStages('copy'); }, done ? 1200 : 300); return; }
   const nst = STAGES[STAGES.indexOf(CP.st) + 1];
   if (!nst) { toast('마지막 급수까지 다 따라 썼어요! 이제 받아쓰기를 해 봐요'); store.set('copyAt', { st: STAGES[0].id, i: 0 }); setTimeout(() => { goHome(); openStages('dict'); }, 1200); return; }
   toast(done ? `${CP.st.id}급 문장을 다 따라 썼어요! ${nst.id}급으로 넘어가요` : `${nst.id}급으로 넘어가요`);
@@ -4398,6 +4406,10 @@ function renderHome(){
     list.appendChild(b);
   }
   for (let i = STAGES.length; i % 30; i++) { const f = document.createElement('i'); f.className = 'stage blank'; list.appendChild(f); }   // 빈 칸으로 줄을 채운다
+  const ex = $('#stageExtra'); ex.innerHTML = '';   // 따라 쓰기에서만: 급수 밖의 문장 묶음(명심보감)
+  for (const st of COPY_EXTRA) { const b = document.createElement('button'); b.className = 'xbook';
+    b.innerHTML = `<b>${st.title}</b><small>${st.sub}</small>`; b.onclick = () => { closeStages(); startCopy(st, 0); };
+    b.onpointerenter = () => { cap.textContent = `${st.title} · ${st.sub}`; }; b.onpointerleave = () => { cap.textContent = capOf(pick); }; ex.appendChild(b); }
   const tags = Object.entries(rec.tags).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const nW = wrongItems().length;   // 틀린 까닭 꼬리표 대신, 틀린 문장을 모아 다시 푸는 단추
   $('#weak').innerHTML = nW ? `<button id="reviewBtn" class="review">틀린 문제 모아 풀기 <b>${nW}</b></button>` : '';
@@ -4428,6 +4440,7 @@ for (const cv of document.querySelectorAll('.cover')) cv.addEventListener('click
 let stageMode = 'dict';
 function openStages(mode = 'dict'){
   stageMode = mode; $('#stageHead').textContent = mode === 'copy' ? '어떤 급수를 연습할까요?' : '받아쓰기';
+  $('#stageExtra').hidden = mode !== 'copy';
   $('#stagePage').classList.add('show');
 }
 function closeStages(){ $('#stagePage').classList.remove('show'); stageMode = 'dict'; }
