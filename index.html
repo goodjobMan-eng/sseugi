@@ -478,10 +478,7 @@
   #stageExtra .shelf::before{content:"";position:absolute;left:0;right:0;bottom:30px;height:11px;border-radius:2px;background:linear-gradient(180deg,#c69a68 0,#a8784c 25%,#8a5e38 70%,#6e4828 100%);box-shadow:0 1px 0 rgba(255,230,190,.35) inset,0 6px 8px -3px rgba(60,35,15,.45)}
   #stageExtra .shelf::after{content:"";position:absolute;left:0;right:0;bottom:30px;height:11px;border-radius:2px;background:repeating-linear-gradient(90deg,transparent 0 37px,rgba(70,40,20,.12) 37px 39px,transparent 39px 83px);mix-blend-mode:multiply;pointer-events:none}
   /* 아직 나오지 않은 책: 요즘 양장본, 크기만 제각각. 그림자 속에 있는 듯 흐리고 어둡게 */
-  #stageExtra .shelf .ghost{flex:none;position:relative;margin-bottom:41px;border-radius:2px 3px 3px 2px;background:linear-gradient(90deg,rgba(0,0,0,.18) 0 4px,rgba(255,255,255,.08) 4px 6px,transparent 6px),var(--c);box-shadow:inset -3px 0 0 #efe9dc,inset -4px 0 0 rgba(0,0,0,.12),2px 2px 5px rgba(40,25,10,.25);filter:grayscale(.4) brightness(.55);opacity:.72}
-  #stageExtra .shelf .ghost i{position:absolute;left:18%;right:14%;top:22%;height:2px;background:rgba(255,255,255,.55);box-shadow:0 6px 0 rgba(255,255,255,.35)}
-  #stageExtra .shelf .ghost b{position:absolute;left:18%;right:30%;bottom:14%;height:1.5px;background:rgba(255,255,255,.4)}
-  #stageExtra .shelf .ghost::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,rgba(30,20,10,.35),transparent 60%);border-radius:inherit}
+  #stageExtra .shelf .ghost{flex:none;position:relative;margin-bottom:41px;border-radius:2px 3px 3px 2px;background:#000;opacity:.13;filter:blur(.3px)}   /* 아직 나오지 않은 책: 모두 같은 검은 실루엣 */
   @media (max-width:760px){ #stageExtra .shelf{gap:22px;padding:10px 18px 0} }
   #stageExtra .xbook{flex:none;position:relative;z-index:1;gap:0!important;padding:0 2px!important}
   #stageExtra .xbook>span{height:30px;display:flex;align-items:flex-end;justify-content:center;font-size:15px!important;letter-spacing:0;white-space:nowrap;margin-top:11px}
@@ -4455,7 +4452,7 @@ function renderHome(){
   // 나중에 들어올 책 자리: 그림자만 보이는 책 몇 권(누를 수 없음)
   // 크기 기준은 명심보감(96×135), 요즘 책 비율(가로:세로 ≈ 1:1.45)
   [[94, '#5f7686'], [86, '#8a5e46'], [100, '#6f7d5c'], [90, '#94784e'], [96, '#62567a'], [88, '#7a6c5e']].map(([w, c]) => [w, Math.round(w * 1.45), c]).forEach(([w, h, t]) => {
-    const g = document.createElement('div'); g.className = 'ghost'; g.style.cssText = `width:${w}px;height:${h}px;--c:${t}`; g.innerHTML = '<i></i><b></b>'; g.setAttribute('aria-hidden', 'true'); ex.appendChild(g); });
+    const g = document.createElement('div'); g.className = 'ghost'; g.style.cssText = `width:${w}px;height:${h}px;--c:${t}`;  g.setAttribute('aria-hidden', 'true'); ex.appendChild(g); });
   const tags = Object.entries(rec.tags).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const nW = wrongItems().length;   // 틀린 까닭 꼬리표 대신, 틀린 문장을 모아 다시 푸는 단추
   $('#weak').innerHTML = nW ? `<button id="reviewBtn" class="review">틀린 문제 모아 풀기 <b>${nW}</b></button>` : '';
@@ -4490,7 +4487,7 @@ function setBook(b, p){
     acc += a; d.style.transform = `rotateY(${a}deg)`;
     d.firstElementChild.style.filter = `brightness(${(1 - .38 * Math.sin(Math.min(acc, 180) * Math.PI / 180)).toFixed(3)})`;
   }
-  b.style.setProperty('--p', p.toFixed(3));
+  b.style.setProperty('--p', p.toFixed(3)); b.style.zIndex = p > 0 ? 5 : '';   // 펼치는 동안엔 옆 편지 위로
 }
 function xOpen(b, st){
   const letter = st.kind === 'letter', el = b.querySelector(letter ? '.lw' : '.bk');
