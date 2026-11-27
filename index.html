@@ -449,6 +449,7 @@
   #penMenu .csw .sw.on{box-shadow:inset 0 0 0 2px rgba(255,255,255,.9),0 0 0 2.5px #3a342c}
   #penMenu [hidden],#erMenu [hidden]{display:none!important}   /* 안 산 도구는 메뉴에서 확실히 숨긴다 */
   #exGo{display:flex;width:100%;min-height:60px;margin:12px 0 4px;justify-content:center;font-size:21px;font-weight:700;border-radius:14px;letter-spacing:.05em}
+  #stageBack{position:fixed;left:max(12px,env(safe-area-inset-left,0px));top:calc(10px + env(safe-area-inset-top,0px));width:44px;height:40px;z-index:5;border-radius:10px}   /* 다른 화면의 '처음 화면' 단추와 같은 자리·같은 모양 */
   .cs-shop{margin-top:22px;padding:14px 18px 18px;background:#fbf8f0;border-radius:6px;box-shadow:0 2px 3px rgba(60,40,20,.12),0 18px 30px -20px rgba(60,40,20,.4)}
   .cs-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;font-family:"Nanum Myeongjo","Noto Serif KR",serif} .cs-h b{font-size:18px} .cs-h small{font-size:13px;color:var(--ink-soft);font-family:inherit}
   .cs-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:12px}
@@ -537,7 +538,7 @@
     <div id="pouch" hidden></div>
   </div>
   <div id="stagePage"><div class="sp-paper">
-    <header><button class="hico" id="stageBack" title="덮기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><b id="stageHead">받아쓰기</b><small id="stepCap"></small></header>
+    <header><button class="hico" id="stageBack" title="처음 화면"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg></button><b id="stageHead">받아쓰기</b><small id="stepCap"></small></header>
     <div id="stageList"></div>
     <div id="weak"></div>
   </div></div>
@@ -563,6 +564,7 @@
       <label>빠르기 <select id="rateSel"><option value=".85">조금 느리게</option><option value="1">보통</option><option value="1.1">조금 빠르게</option></select></label>
       <label>정답 글씨체 <select id="fontSel"></select><span id="fontPrev" class="fprev">학교 국물</span></label>
       <label>가벼운 모드 <select id="liteSel"><option value="1">켬</option><option value="0">끔</option></select></label>
+      <label>글씨 인식 <select id="neatSel"><option value="0">흘린 글씨도 인식</option><option value="1">또박또박한 글씨만 인식</option></select></label>
       <div class="row"><button id="goEnroll">낱자 하나씩 익히기</button><button id="resetHand">글씨 견본 지우기</button><button id="resetRec">기록 지우기</button></div>
       <p class="mini">기록은 이 기기에만 저장돼요.</p>
     </details>
@@ -3271,7 +3273,8 @@ const HNW = (() => {
 })();
 // 원고지 쓰는 법: 마침표·쉼표 다음에는 빈칸을 두지 않는다(그 칸이 띄어쓰기를 겸함). 칸에 놓을 때는 이 모양으로 본다
 const cellT = s => s && s.replace(/([.,]) /g, '$1');
-const ANS_PRIOR = 25;   // 정답 글자 믿음 배수(손글씨 글꼴 시험으로 정함)
+const ANS_PRIOR = 25;
+const NEAT_T = .15;   // 또박또박 기준: 모델이 그 글자일 확률(정답 믿음 빼고)이 이보다 낮으면 못 읽은 글씨로 본다   // 정답 글자 믿음 배수(손글씨 글꼴 시험으로 정함)
 async function recognizeCell(r, c){
   // 문장부호 칸: 두 칸 배치(부호 뒤 빈칸 없음/있음)가 모두 부호면 부호로 읽고, 한쪽만 부호면 글자와 견주어 고른다
   let punctAlt = null;
@@ -3306,6 +3309,9 @@ async function recognizeCell(r, c){
     let ch;
     if (top[0][1] > .5 && !set.has(top[0][0]) && top[0][1] > best[1] * 4) ch = top[0][0];   // 후보 밖의 글자를 또렷이 썼다
     else ch = best[1] > .01 ? best[0] : (top[0][1] > .3 ? top[0][0] : '?');
+    // 글씨 모양 기준(정답과 상관없이): '또박또박한 글씨만'이면 모델이 그 글자로 또렷이 읽지 못한 칸은 '?'(다시 쓰기)
+    const raw = ch === '?' ? 0 : HNW.prob(P, ch); if (window.__rawLog) window.__rawLog.push([ch, raw, want]);
+    if (ch !== '?' && store.get('neat', 0) && raw < (window.__NEAT_T || NEAT_T)) ch = '?';
     return { ch, s1: Math.max(best[1], top[0][1]), conf: (sc[0] ? sc[0][1] : 0) - (sc[1] ? sc[1][1] : 0), alts: [...new Set([ch, ...sc.slice(0, 4).map(x => x[0]), ...top.map(x => x[0])])].slice(0, 6), f: fi.f };
   }
   const scored = [];
@@ -4423,6 +4429,16 @@ $('#goQuick').addEventListener('click', () => store.get('tutDone', 0) ? startCop
 $('#tutSkip').addEventListener('click', () => { tutEnd(true); store.set('tutDone', 1); grantEraser(); goHome(); openStages('copy'); });
 $('#goFree').addEventListener('click', startFree);
 $('#homeBtn').addEventListener('click', goHome);
+// 브라우저 '뒤로'를 눌러도 앱을 떠나지 않고 처음 화면으로 돌아온다(홈이 아닌 화면에 들어갈 때 기록을 하나 쌓아 둔다)
+(() => { try {
+  const inner = () => !$('#home').classList.contains('show') || $('#stagePage').classList.contains('show') || $('#caseSheet').classList.contains('show') || $('#homeSheet').classList.contains('show');
+  let pushed = false;
+  const watch = () => { if (inner() && !pushed) { history.pushState({ sseugi: 1 }, ''); pushed = true; } else if (!inner() && pushed) { pushed = false; if (history.state && history.state.sseugi) history.back(); } };
+  new MutationObserver(watch).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  addEventListener('popstate', () => { if (!pushed) return; pushed = false;
+    $('#caseSheet').classList.remove('show', 'out'); $('#homeSheet').classList.remove('show');
+    if (!$('#home').classList.contains('show') || $('#stagePage').classList.contains('show')) goHome(); });
+} catch (e) {} })();
 $('#voiceSel').addEventListener('change', e => {
   const v = e.target.value;
   if (v.startsWith('rec:')) { store.set('voiceRec', v.slice(4)); sayRec(0, 7, 1, '나비야 어디 가니'); }
@@ -4878,6 +4894,8 @@ drawGauge();
 window.__app = { app, D, E, labels, recognizeCell, flushRecognition, startDictation, startEnroll, STAGES, rec, grade, cellBox };
 
 document.body.classList.toggle('litemode', LITE);
+$('#neatSel').value = store.get('neat', 0) ? '1' : '0';
+$('#neatSel').addEventListener('change', e => store.set('neat', +e.target.value));
 $('#liteSel').value = LITE ? '1' : '0';
 $('#liteSel').addEventListener('change', e => {
   LITE = e.target.value === '1'; store.set('lite', LITE); document.body.classList.toggle('litemode', LITE);
