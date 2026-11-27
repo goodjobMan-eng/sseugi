@@ -456,13 +456,8 @@
   #stageExtra .xbook .lw{position:relative;width:70px;aspect-ratio:220/493;margin:0 13px;filter:drop-shadow(1px 3px 3px rgba(60,40,20,.3)) drop-shadow(3px 7px 8px rgba(60,40,20,.14));transform:rotate(2deg);transition:transform .25s}
   #stageExtra .xbook:hover .lw{transform:rotate(0) translateY(-3px)}
   #stageExtra .xbook .lw .env{position:absolute;inset:0;width:100%;height:100%;z-index:2;transition:transform .7s cubic-bezier(.4,.05,.25,1),opacity .5s .25s}
-  #stageExtra .xbook .ltr{position:absolute;left:4%;right:4%;top:2%;height:96%;z-index:1;background:#f3ead3;border:.6px solid rgba(120,95,60,.4);writing-mode:vertical-rl;font-family:"SSG Gungseo","Nanum Myeongjo",serif;color:#1c140e;font-size:8px;line-height:10.5px;padding:7px 4px;overflow:hidden;transform-origin:50% 100%;transform:scaleY(.18);transition:transform .7s cubic-bezier(.4,.05,.25,1) .15s,left .45s .5s,right .45s .5s,box-shadow .4s}
+  #stageExtra .xbook .ltr{position:absolute;left:4%;right:4%;top:2%;height:96%;z-index:1;background:#f3ead3;border:.6px solid rgba(120,95,60,.4);writing-mode:vertical-rl;font-family:"SSG Gungseo","Nanum Myeongjo",serif;color:#1c140e;font-size:8px;line-height:10.5px;padding:7px 4px;overflow:hidden;transform:translateY(calc(var(--p,0) * -104%))}
   #stageExtra .xbook .ltr p{margin:0;white-space:nowrap} #stageExtra .xbook .ltr .from{margin-right:auto;margin-top:auto;align-self:flex-end;font-size:7px;opacity:.85}
-  #stageExtra .xbook.opening .lw .env{animation:envDown 1.25s cubic-bezier(.4,.05,.25,1) forwards}
-  #stageExtra .xbook.opening .ltr{animation:ltrOut 1.25s cubic-bezier(.4,.05,.25,1) forwards}
-  @keyframes envDown{0%,42%{transform:none;opacity:1}100%{transform:translateY(45%) rotate(-5deg);opacity:0}}
-  @keyframes ltrOut{0%{transform:translateY(0) scaleY(.18);z-index:1}45%{transform:translateY(-92%) scaleY(.62);z-index:1;left:4%;right:4%;padding-right:4px}52%{z-index:3}100%{transform:translateY(-6%) scaleY(1);z-index:3;left:-75%;right:-75%;padding-right:34%;box-shadow:0 5px 12px rgba(60,40,20,.28)}}
-  #stageExtra .xbook.opening .lw{transform:rotate(0) scale(1.08)}
   #stageExtra{align-items:flex-end;display:flex;gap:10px;margin-top:14px} #stageExtra[hidden]{display:none}
   #stageExtra .xbook{display:flex;flex-direction:column;align-items:center;gap:6px;height:auto;min-height:0;padding:4px 6px;background:none;border:0;box-shadow:none;cursor:pointer;font-family:"Nanum Myeongjo","Noto Serif KR",serif;color:#5a4a3a}
   #stageExtra .xbook .bk{position:relative;width:96px;aspect-ratio:300/421;perspective:520px;filter:drop-shadow(1px 3px 3px rgba(60,40,20,.35)) drop-shadow(3px 7px 8px rgba(60,40,20,.16));transform:rotate(-2deg);transition:transform .25s}
@@ -470,20 +465,27 @@
   #stageExtra .xbook .pg{position:absolute;inset:2% 4% 2% 3%;background:#efe4c8;box-shadow:inset 0 0 0 4px #efe4c8,inset 0 0 0 5.6px rgba(28,20,14,.85),inset 0 0 0 7px #efe4c8,inset 0 0 0 7.6px rgba(28,20,14,.7);writing-mode:vertical-rl;font-family:"SSG Gungseo","Nanum Myeongjo","Noto Serif KR",serif;color:#1c140e;font-size:8.6px;line-height:10.7px;padding:10px 9px 10px 16px;overflow:hidden;text-align:start}
   #stageExtra .xbook .pg::after{content:"";position:absolute;left:8px;top:8px;bottom:8px;width:6px;border-right:.6px solid rgba(28,20,14,.7);background:linear-gradient(180deg,transparent 18%,rgba(28,20,14,.85) 18% 20%,transparent 20%) , radial-gradient(circle at 0 24%,rgba(28,20,14,.8) 0 2.4px,transparent 2.6px);pointer-events:none}   /* 판심 반쪽: 접힌 쪽 가장자리와 어미 */
   #stageExtra .xbook .pg b,#stageExtra .xbook .pg p{display:block;margin:0;white-space:nowrap;inline-size:auto;block-size:10.7px;border-left:.6px solid rgba(28,20,14,.55);padding-top:2px} #stageExtra .xbook .pg b{font-size:9.6px}   /* 글줄마다 왼쪽에 먹 계선 */
-  #stageExtra .xbook .fl{position:absolute;inset:0;transform-origin:100% 50%;transform-style:preserve-3d;transition:transform .75s cubic-bezier(.4,.05,.25,1)}
-  #stageExtra .xbook .cv{position:absolute;inset:0;width:100%;height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden}
-  #stageExtra .xbook .cb{position:absolute;inset:0;background:#d3b06e linear-gradient(90deg,rgba(0,0,0,.12),transparent 30%);transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:2px}
-  #stageExtra .xbook.opening .fl{transform:rotateY(-168deg)}
-  #stageExtra .xbook>span{font-size:16px;font-weight:700;letter-spacing:.08em;font-family:"SSG Gungseo","Nanum Myeongjo",serif;color:#3a2c20}
-  #stageExtra .xbook.opening .bk{transform:rotate(0) scale(1.08)}
+  #stageExtra .xbook .fl{position:absolute;inset:0;transform-style:preserve-3d}
+  #stageExtra .xbook .st{position:absolute;top:0;height:100%;transform-origin:100% 50%;transform-style:preserve-3d}
+  #stageExtra .xbook .st>.f,#stageExtra .xbook .st>.b{position:absolute;inset:0 -.4px;backface-visibility:hidden;-webkit-backface-visibility:hidden;background-repeat:no-repeat}
+  #stageExtra .xbook .st>.b{background:#d3b06e;transform:rotateY(180deg)}
+  #stageExtra .xbook .bk,#stageExtra .xbook .lw{touch-action:none;cursor:grab} #stageExtra .xbook.drag .bk,#stageExtra .xbook.drag .lw{cursor:grabbing}
+  #stageExtra .xbook .pg{box-shadow:inset 0 0 0 4px #efe4c8,inset 0 0 0 5.6px rgba(28,20,14,.85),inset 0 0 0 7px #efe4c8,inset 0 0 0 7.6px rgba(28,20,14,.7),inset calc(var(--p,0) * -40px) 0 30px -18px rgba(40,25,10,calc(.5 - var(--p,0) * .4))}
+  #stageExtra .xbook>span{font-size:16px;font-weight:700;font-family:"Nanum Myeongjo","Noto Serif KR",serif;color:#3f3a32}
   /* 옛글 선반: 책가도(冊架圖)처럼 나무 선반 위에 책과 편지를 세워 둔다 */
   #stageExtra{display:block!important;margin-top:22px} #stageExtra[hidden]{display:none!important}
-  #stageExtra .xh{display:flex;align-items:center;gap:10px;margin:0 2px 6px;font-family:"SSG Gungseo","Nanum Myeongjo",serif;color:#3a2c20} #stageExtra .xh b{font-size:17px;letter-spacing:.12em;font-weight:400} #stageExtra .xh i{flex:1;height:1px;background:linear-gradient(90deg,rgba(120,90,60,.45),transparent)}
-  #stageExtra .shelf{position:relative;display:inline-flex;align-items:flex-end;gap:38px;padding:10px 34px 0}
+  #stageExtra .xh{display:flex;align-items:center;gap:12px;margin:0 0 6px -10px;font-family:"Nanum Myeongjo","Noto Serif KR",serif;color:#3f3a32} #stageExtra .xh b{font-size:19px;font-weight:700}   /* 위 「어떤 급수를 연습할까요?」와 같은 글꼴 */ #stageExtra .xh i{flex:1;height:1px;background:linear-gradient(90deg,rgba(120,90,60,.45),transparent)}
+  #stageExtra .shelf{position:relative;display:flex;align-items:flex-end;gap:38px;padding:10px 34px 0;width:100%;box-sizing:border-box;overflow:hidden}
   #stageExtra .shelf::before{content:"";position:absolute;left:0;right:0;bottom:30px;height:11px;border-radius:2px;background:linear-gradient(180deg,#c69a68 0,#a8784c 25%,#8a5e38 70%,#6e4828 100%);box-shadow:0 1px 0 rgba(255,230,190,.35) inset,0 6px 8px -3px rgba(60,35,15,.45)}
   #stageExtra .shelf::after{content:"";position:absolute;left:0;right:0;bottom:30px;height:11px;border-radius:2px;background:repeating-linear-gradient(90deg,transparent 0 37px,rgba(70,40,20,.12) 37px 39px,transparent 39px 83px);mix-blend-mode:multiply;pointer-events:none}
-  #stageExtra .xbook{position:relative;z-index:1;gap:0!important;padding:0 2px!important}
-  #stageExtra .xbook>span{height:30px;display:flex;align-items:flex-end;justify-content:center;font-size:14px!important;letter-spacing:.1em;white-space:nowrap;margin-top:11px}
+  /* 아직 나오지 않은 책: 요즘 양장본, 크기만 제각각. 그림자 속에 있는 듯 흐리고 어둡게 */
+  #stageExtra .shelf .ghost{flex:none;position:relative;margin-bottom:41px;border-radius:2px 3px 3px 2px;background:linear-gradient(90deg,rgba(0,0,0,.18) 0 4px,rgba(255,255,255,.08) 4px 6px,transparent 6px),var(--c);box-shadow:inset -3px 0 0 #efe9dc,inset -4px 0 0 rgba(0,0,0,.12),2px 2px 5px rgba(40,25,10,.25);filter:grayscale(.55) brightness(.82);opacity:.38}
+  #stageExtra .shelf .ghost i{position:absolute;left:18%;right:14%;top:22%;height:2px;background:rgba(255,255,255,.55);box-shadow:0 6px 0 rgba(255,255,255,.35)}
+  #stageExtra .shelf .ghost b{position:absolute;left:18%;right:30%;bottom:14%;height:1.5px;background:rgba(255,255,255,.4)}
+  #stageExtra .shelf .ghost::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,rgba(30,20,10,.35),transparent 60%);border-radius:inherit}
+  @media (max-width:760px){ #stageExtra .shelf{gap:22px;padding:10px 18px 0} }
+  #stageExtra .xbook{flex:none;position:relative;z-index:1;gap:0!important;padding:0 2px!important}
+  #stageExtra .xbook>span{height:30px;display:flex;align-items:flex-end;justify-content:center;font-size:15px!important;letter-spacing:0;white-space:nowrap;margin-top:11px}
   #stageExtra .xbook .bk,#stageExtra .xbook .lw{margin-bottom:-1px;transform:none} #stageExtra .xbook .lw{transform:rotate(1.2deg);transform-origin:50% 100%} #stageExtra .xbook>span{line-height:1}
   .cs-shop{margin-top:22px;padding:14px 18px 18px;background:#fbf8f0;border-radius:6px;box-shadow:0 2px 3px rgba(60,40,20,.12),0 18px 30px -20px rgba(60,40,20,.4)}
   .cs-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;font-family:"Nanum Myeongjo","Noto Serif KR",serif} .cs-h b{font-size:18px} .cs-h small{font-size:13px;color:var(--ink-soft);font-family:inherit}
@@ -4439,22 +4441,71 @@ function renderHome(){
     list.appendChild(b);
   }
   for (let i = STAGES.length; i % 30; i++) { const f = document.createElement('i'); f.className = 'stage blank'; list.appendChild(f); }   // 빈 칸으로 줄을 채운다
-  const ex0 = $('#stageExtra'); ex0.innerHTML = '<div class="xh"><b>옛글 따라 쓰기</b><i></i></div><div class="shelf"></div>'; const ex = ex0.querySelector('.shelf');   // 책가도처럼 나무 선반 위에 옛 책·편지를 세워 둔다   // 따라 쓰기에서만: 급수 밖의 문장 묶음(명심보감)
+  const ex0 = $('#stageExtra'); ex0.innerHTML = '<div class="xh"><b>좋은 글 따라 쓰기</b><i></i></div><div class="shelf"></div>'; const ex = ex0.querySelector('.shelf');   // 책가도처럼 나무 선반 위에 옛 책·편지를 세워 둔다   // 따라 쓰기에서만: 급수 밖의 문장 묶음(명심보감)
   for (const st of COPY_EXTRA) { const b = document.createElement('button'); b.className = 'xbook';
     // 옛 책 한 권: 표지(Flow 사진)를 누르면 오른쪽 실 묶음을 축으로 표지가 넘어가며 안쪽 장이 보인다
     b.innerHTML = st.kind === 'letter'
       // 편지: 봉투(Flow 사진)를 누르면 봉투가 내려가고 접힌 편지가 쑥 올라와 펼쳐진다
       ? `<div class="lw"><div class="ltr"><p>학연 학유에게</p><p>폐족이 되었다고</p><p>기죽지 말고</p><p>더욱 글을 읽어라</p><p>근과 검 두 글자를</p><p>너희에게 남긴다</p><p class="from">강진에서 아비가</p></div><img class="env" alt="" draggable="false" src="${DASAN_ENV}"></div><span>${st.title}</span>`
-      : `<div class="bk"><div class="pg"><b>繼善篇</b><p>子曰爲善者는天報之以福하고</p><p>爲不善者는天報之以禍니라漢</p><p>昭烈이將終에勅後主曰勿以善</p><p>小而不爲하고勿以惡小而爲之</p><p>하라莊子曰一日不念善이면諸</p></div><div class="fl"><img class="cv" alt="" draggable="false" src="${MSB_COVER}"><i class="cb"></i></div></div><span>${st.title}</span>`;
+      : `<div class="bk"><div class="pg"><b>繼善篇</b><p>子曰爲善者는天報之以福하고</p><p>爲不善者는天報之以禍니라漢</p><p>昭烈이將終에勅後主曰勿以善</p><p>小而不爲하고勿以惡小而爲之</p><p>하라莊子曰一日不念善이면諸</p></div><div class="fl"></div></div><span>${st.title}</span>`;
     b.title = `${st.title} · ${st.sub}`;
-    b.onclick = () => { if (b.classList.contains('opening')) return; b.classList.add('opening'); try { ensureAudio(); if (!playSample('turn', .8)) soundPage('flip'); } catch (er) {}
-      setTimeout(() => { closeStages(); startCopy(st, 0); setTimeout(() => b.classList.remove('opening'), 500); }, st.kind === 'letter' ? 1500 : 760); };
+    xOpen(b, st);
     b.onpointerenter = () => { cap.textContent = `${st.title} · ${st.sub}`; }; b.onpointerleave = () => { cap.textContent = capOf(pick); }; ex.appendChild(b); }
+  // 나중에 들어올 책 자리: 그림자만 보이는 책 몇 권(누를 수 없음)
+  [[66, 94, '#6f8a9a'], [56, 104, '#a7765a'], [72, 86, '#8c9a76'], [50, 98, '#b59a6a'], [62, 110, '#7d6f8e'], [58, 90, '#9a8b7c']].forEach(([w, h, t]) => {
+    const g = document.createElement('div'); g.className = 'ghost'; g.style.cssText = `width:${w}px;height:${h}px;--c:${t}`; g.innerHTML = '<i></i><b></b>'; g.setAttribute('aria-hidden', 'true'); ex.appendChild(g); });
   const tags = Object.entries(rec.tags).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const nW = wrongItems().length;   // 틀린 까닭 꼬리표 대신, 틀린 문장을 모아 다시 푸는 단추
   $('#weak').innerHTML = nW ? `<button id="reviewBtn" class="review">틀린 문제 모아 풀기 <b>${nW}</b></button>` : '';
   const rb = $('#reviewBtn'); if (rb) rb.onclick = startReview;
   loadVoices();
+}
+
+// 옛글 꺼내기: 편지는 위로 끌어 봉투에서 빼고, 명심보감은 오른쪽으로 끌어 표지를 종이 넘기듯 넘긴다(톡 누르면 저절로)
+const XSTRIPS = 9;
+function bookCover(fl){   // 표지를 세로 띠 9개로 잘라 오른쪽(실 묶음)부터 사슬처럼 잇는다 — 띠마다 조금씩 더 꺾여 종이처럼 휜다
+  let par = fl, html = '';
+  for (let k = 0; k < XSTRIPS; k++) {
+    const d = document.createElement('div'); d.className = 'st';
+    d.style.cssText = `width:${100 / XSTRIPS}%;` + (k ? 'right:100%' : 'right:0') ;
+    const f = document.createElement('i'); f.className = 'f'; f.style.backgroundImage = `url(${MSB_COVER})`;
+    f.style.backgroundSize = `${XSTRIPS * 100}% 100%`; f.style.backgroundPosition = `${(XSTRIPS - 1 - k) / (XSTRIPS - 1) * 100}% 0`;
+    const bk = document.createElement('i'); bk.className = 'b';
+    d.append(f, bk); par.appendChild(d); par = d;
+    if (k) d.style.width = '100%';
+  }
+}
+function setBook(b, p){
+  const fl = b.querySelector('.fl'); if (!fl) return;
+  const th = p * 178, curl = Math.sin(p * Math.PI) * .55;          // 넘기는 중간에 가장 많이 휜다
+  let k = 0, acc = 0;
+  for (let d = fl.firstElementChild; d; d = d.querySelector(':scope > .st'), k++) {
+    const a = k === 0 ? th * (1 - curl) : th * curl / (XSTRIPS - 1) * (1 + (k - 1) * .12) / (1 + (XSTRIPS - 2) * .06);
+    acc += a; d.style.transform = `rotateY(${a}deg)`;
+    d.firstElementChild.style.filter = `brightness(${(1 - .38 * Math.sin(Math.min(acc, 180) * Math.PI / 180)).toFixed(3)})`;
+  }
+  b.style.setProperty('--p', p.toFixed(3));
+}
+function xOpen(b, st){
+  const letter = st.kind === 'letter', el = b.querySelector(letter ? '.lw' : '.bk');
+  if (!letter) bookCover(b.querySelector('.fl'));
+  let p = 0, drag = null, anim = 0, done = false, lastSnd = 0;
+  const set = v => { p = Math.max(0, Math.min(1, v)); if (letter) b.style.setProperty('--p', p.toFixed(3)); else setBook(b, p);
+    if (Math.abs(p - lastSnd) > .22) { lastSnd = p; try { ensureAudio(); if (letter) { if (!playSample('turn', .25)) soundPage('lift'); } else soundPage('lift'); } catch (er) {} } };
+  const finish = () => { if (done) return; done = true; try { if (!letter && !playSample('turn', .8)) soundPage('flip'); } catch (er) {}
+    setTimeout(() => { closeStages(); startCopy(st, 0); setTimeout(() => { done = false; set(0); }, 600); }, letter ? 180 : 260); };
+  const go = to => { cancelAnimationFrame(anim); const from = p, t0 = performance.now(), dur = 260 + 520 * Math.abs(to - from);
+    const step = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 2.4); set(from + (to - from) * e);
+      if (k < 1) anim = requestAnimationFrame(step); else if (to === 1) finish(); };
+    anim = requestAnimationFrame(step); };
+  el.addEventListener('pointerdown', e => { if (done) return; cancelAnimationFrame(anim); drag = { x: e.clientX, y: e.clientY, p0: p, m: 0 }; try { el.setPointerCapture(e.pointerId); } catch (er) {} b.classList.add('drag'); e.preventDefault(); });
+  el.addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x, dy = drag.y - e.clientY;
+    drag.m = Math.max(drag.m, Math.hypot(dx, dy));
+    set(drag.p0 + (letter ? dy / (el.offsetHeight * 1.05) : dx / (el.offsetWidth * 1.7))); });
+  const up = () => { if (!drag) return; const m = drag.m; drag = null; b.classList.remove('drag'); go(m < 6 || p > .42 ? 1 : 0); };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  b.addEventListener('click', e => { if (e.detail === 0) go(1); });   // 키보드
+  set(0);
 }
 function setFontUI(){
   $('#fontSel').innerHTML = ANSWER_FONTS.map(f => `<option value="${f.id}"${f.id === ansFont ? ' selected' : ''}>${f.name}</option>`).join('');
