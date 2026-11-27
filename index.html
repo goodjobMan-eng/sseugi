@@ -456,7 +456,8 @@
   #stageExtra .xbook .lw{position:relative;width:70px;aspect-ratio:220/493;margin:0 13px;filter:drop-shadow(1px 3px 3px rgba(60,40,20,.3)) drop-shadow(3px 7px 8px rgba(60,40,20,.14));transform:rotate(2deg);transition:transform .25s}
   #stageExtra .xbook:hover .lw{transform:rotate(0) translateY(-3px)}
   #stageExtra .xbook .lw .env{position:absolute;inset:0;width:100%;height:100%;z-index:2;transition:transform .7s cubic-bezier(.4,.05,.25,1),opacity .5s .25s}
-  #stageExtra .xbook .ltr{position:absolute;left:6%;width:88%;top:3%;height:auto;z-index:1;transform:translateY(calc(var(--p,0) * -96%));filter:drop-shadow(0 1px 2px rgba(60,40,20,.25))}   /* 봉투 안에 원래 들어 있던 편지지(Flow) — 위로 끌면 빠져나온다 */
+  #stageExtra .xbook .ltr{position:absolute;left:6%;width:88%;top:14%;height:auto;z-index:2;transform:translateY(calc(var(--p,0) * -100%));filter:drop-shadow(0 1px 2px rgba(60,40,20,.25))}   /* 봉투 안에 들어 있던 편지지 — 뒷면 덮개 앞, 앞면 뒤에서 위로 빠져나온다 */
+  #stageExtra .xbook .lw .envb{z-index:1;clip-path:inset(0 0 87.2% 0)} #stageExtra .xbook .lw .envf{z-index:3;clip-path:inset(12.6% 0 0 0)}
   #stageExtra{align-items:flex-end;display:flex;gap:10px;margin-top:14px} #stageExtra[hidden]{display:none}
   #stageExtra .xbook{display:flex;flex-direction:column;align-items:center;gap:6px;height:auto;min-height:0;padding:4px 6px;background:none;border:0;box-shadow:none;cursor:pointer;font-family:"Nanum Myeongjo","Noto Serif KR",serif;color:#5a4a3a}
   #stageExtra .xbook .bk{position:relative;width:96px;aspect-ratio:300/421;perspective:520px;filter:drop-shadow(1px 3px 3px rgba(60,40,20,.35)) drop-shadow(3px 7px 8px rgba(60,40,20,.16));transform:rotate(-2deg);transition:transform .25s}
@@ -4445,7 +4446,7 @@ function renderHome(){
     // 옛 책 한 권: 표지(Flow 사진)를 누르면 오른쪽 실 묶음을 축으로 표지가 넘어가며 안쪽 장이 보인다
     b.innerHTML = st.kind === 'letter'
       // 편지: 봉투(Flow 사진)를 누르면 봉투가 내려가고 접힌 편지가 쑥 올라와 펼쳐진다
-      ? `<div class="lw"><img class="ltr" alt="" draggable="false" src="${DASAN_LTR}"><img class="env" alt="" draggable="false" src="${DASAN_ENV}"></div><span>${st.title}</span>`
+      ? `<div class="lw"><img class="env envb" alt="" draggable="false" src="${DASAN_ENV}"><img class="ltr" alt="" draggable="false" src="${DASAN_LTR}"><img class="env envf" alt="" draggable="false" src="${DASAN_ENV}"></div><span>${st.title}</span>`
       : `<div class="bk"><div class="pg"><b>繼善篇</b><p>子曰爲善者는天報之以福하고</p><p>爲不善者는天報之以禍니라漢</p><p>昭烈이將終에勅後主曰勿以善</p><p>小而不爲하고勿以惡小而爲之</p><p>하라莊子曰一日不念善이면諸</p><p>惡이皆自起니라太公曰見善如</p></div><div class="fl"></div></div><span>${st.title}</span>`;
     b.title = `${st.title} · ${st.sub}`;
     xOpen(b, st);
