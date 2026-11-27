@@ -457,8 +457,9 @@
   #stageExtra .xbook{display:flex;flex-direction:column;align-items:center;gap:6px;height:auto;min-height:0;padding:4px 6px;background:none;border:0;box-shadow:none;cursor:pointer;font-family:"Nanum Myeongjo","Noto Serif KR",serif;color:#5a4a3a}
   #stageExtra .xbook .bk{position:relative;width:96px;aspect-ratio:300/421;perspective:520px;filter:drop-shadow(1px 3px 3px rgba(60,40,20,.35)) drop-shadow(3px 7px 8px rgba(60,40,20,.16));transform:rotate(-2deg);transition:transform .25s}
   #stageExtra .xbook:hover .bk{transform:rotate(0) translateY(-3px)}
-  #stageExtra .xbook .pg{position:absolute;inset:2% 4% 2% 3%;background:#f4ecd6 repeating-linear-gradient(90deg,transparent 0 10px,rgba(178,48,40,.45) 10px 10.7px);border:1px solid rgba(178,48,40,.55);writing-mode:vertical-rl;font-family:"SSG Gungseo","Nanum Myeongjo","Noto Serif KR",serif;color:#2c2118;font-size:8.6px;line-height:10.7px;padding:5px 3px;overflow:hidden;text-align:start}
-  #stageExtra .xbook .pg b{font-size:10px;margin-left:2px;display:block} #stageExtra .xbook .pg p{margin:0;display:block;white-space:nowrap}
+  #stageExtra .xbook .pg{position:absolute;inset:2% 4% 2% 3%;background:#efe4c8;box-shadow:inset 0 0 0 4px #efe4c8,inset 0 0 0 5.6px rgba(28,20,14,.85),inset 0 0 0 7px #efe4c8,inset 0 0 0 7.6px rgba(28,20,14,.7);writing-mode:vertical-rl;font-family:"SSG Gungseo","Nanum Myeongjo","Noto Serif KR",serif;color:#1c140e;font-size:8.6px;line-height:10.7px;padding:10px 9px 10px 16px;overflow:hidden;text-align:start}
+  #stageExtra .xbook .pg::after{content:"";position:absolute;left:8px;top:8px;bottom:8px;width:6px;border-right:.6px solid rgba(28,20,14,.7);background:linear-gradient(180deg,transparent 18%,rgba(28,20,14,.85) 18% 20%,transparent 20%) , radial-gradient(circle at 0 24%,rgba(28,20,14,.8) 0 2.4px,transparent 2.6px);pointer-events:none}   /* 판심 반쪽: 접힌 쪽 가장자리와 어미 */
+  #stageExtra .xbook .pg b,#stageExtra .xbook .pg p{display:block;margin:0;white-space:nowrap;inline-size:auto;block-size:10.7px;border-left:.6px solid rgba(28,20,14,.55);padding-top:2px} #stageExtra .xbook .pg b{font-size:9.6px}   /* 글줄마다 왼쪽에 먹 계선 */
   #stageExtra .xbook .fl{position:absolute;inset:0;transform-origin:100% 50%;transform-style:preserve-3d;transition:transform .75s cubic-bezier(.4,.05,.25,1)}
   #stageExtra .xbook .cv{position:absolute;inset:0;width:100%;height:100%;backface-visibility:hidden;-webkit-backface-visibility:hidden}
   #stageExtra .xbook .cb{position:absolute;inset:0;background:#d3b06e linear-gradient(90deg,rgba(0,0,0,.12),transparent 30%);transform:rotateY(180deg);backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:2px}
@@ -4421,7 +4422,7 @@ function renderHome(){
   const ex = $('#stageExtra'); ex.innerHTML = '';   // 따라 쓰기에서만: 급수 밖의 문장 묶음(명심보감)
   for (const st of COPY_EXTRA) { const b = document.createElement('button'); b.className = 'xbook';
     // 옛 책 한 권: 표지(Flow 사진)를 누르면 오른쪽 실 묶음을 축으로 표지가 넘어가며 안쪽 장이 보인다
-    b.innerHTML = `<div class="bk"><div class="pg"><b>繼善篇</b><p>子曰爲善者는天報之以福하고</p><p>爲不善者는天報之以禍니라漢</p><p>昭烈이將終에勅後主曰勿以善</p><p>小而不爲하고勿以惡小而爲之</p><p>하라莊子曰一日不念善이면諸</p><p>惡이皆自起니라</p></div><div class="fl"><img class="cv" alt="" draggable="false" src="${MSB_COVER}"><i class="cb"></i></div></div><span>${st.title}</span>`;
+    b.innerHTML = `<div class="bk"><div class="pg"><b>繼善篇</b><p>子曰爲善者는天報之以福하고</p><p>爲不善者는天報之以禍니라漢</p><p>昭烈이將終에勅後主曰勿以善</p><p>小而不爲하고勿以惡小而爲之</p><p>하라莊子曰一日不念善이면諸</p></div><div class="fl"><img class="cv" alt="" draggable="false" src="${MSB_COVER}"><i class="cb"></i></div></div><span>${st.title}</span>`;
     b.title = `${st.title} · ${st.sub}`;
     b.onclick = () => { if (b.classList.contains('opening')) return; b.classList.add('opening'); try { ensureAudio(); if (!playSample('turn', .8)) soundPage('flip'); } catch (er) {}
       setTimeout(() => { closeStages(); startCopy(st, 0); setTimeout(() => b.classList.remove('opening'), 500); }, 760); };
