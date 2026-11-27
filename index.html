@@ -705,31 +705,34 @@ function pattern(ctx, tex, scale){
   return p;
 }
 // 필기구: 연필은 종이 결에 걸려 거칠게, 볼펜은 가늘고 매끈하게, 사인펜은 굵고 살짝 번지게
-const PENS = {
+const PENS = {   // 메뉴·문방구·필통에 이 순서대로(같은 종류끼리 모아서)
+  // 연필
   hb:   { name: '연필 HB',      kind: 'graphite', rgb: [58, 58, 66], r: 1,    lo: .26, hi: .70 },
   b2:   { name: '진한 연필 2B', kind: 'graphite', rgb: [34, 34, 40], r: 1.18, lo: .40, hi: .58, price: 5 },
+  b4:      { name: '아주 진한 연필 4B', kind: 'graphite', rgb: [22, 22, 26], r: 1.32, lo: .5, hi: .5, price: 12 },
+  // 볼펜
   ball: { name: '볼펜',         kind: 'ball',     rgb: [30, 40, 86], r: .6, price: 8 },
+  bball:   { name: '파란 볼펜', kind: 'ball', rgb: [30, 72, 186], r: .6, price: 10 },
+  rball:   { name: '빨간 볼펜', kind: 'ball', rgb: [196, 30, 40], r: .6, price: 10 },
+  gball:   { name: '초록 볼펜', kind: 'ball', rgb: [26, 110, 70], r: .6, price: 12 },
+  // 사인펜
   sign: { name: '사인펜',       kind: 'sign',     rgb: [24, 24, 28], r: 1.5, price: 10 },
+  psign:   { name: '분홍 사인펜', kind: 'sign', rgb: [212, 78, 140], r: 1.5, price: 15 },
+  // 만년필
   fountain: { name: '만년필',   kind: 'fountain', rgb: [26, 36, 92], r: 1.05, price: 15 },
-  // 샤프는 넣지 않는다(아이들에게 샤프를 권하지 않음 — 성인용 원고지에만)
-  red:  { name: '빨간 색연필', kind: 'wax', rgb: [204, 32, 40], r: 1.9 },   // 빨간 색연필은 처음부터 모두에게
-  // ── 문방구: 받아쓰기·따라 쓰기로 모은 칭찬 도장으로 산다(price) ──
-  cblue:   { name: '파란 색연필', kind: 'wax', rgb: [44, 92, 172], r: 1.9, price: 8 },
-  cgreen:  { name: '초록 색연필', kind: 'wax', rgb: [52, 128, 82], r: 1.9, price: 8 },
-  cpurple: { name: '보라 색연필', kind: 'wax', rgb: [118, 70, 160], r: 1.9, price: 10 },
-  cbrown:  { name: '갈색 색연필', kind: 'wax', rgb: [128, 84, 50], r: 1.9, price: 10 },
+  // 색연필(빨강은 처음부터 모두에게, 나머지는 문방구에서 칭찬 도장으로 산다)
+  red:  { name: '빨간 색연필', kind: 'wax', rgb: [204, 32, 40], r: 1.9 },   // 빨간 색연필은 처음부터 모두에게,
   corange: { name: '주황 색연필', kind: 'wax', rgb: [238, 128, 34], r: 1.9, price: 8 },
   cyellow: { name: '노랑 색연필', kind: 'wax', rgb: [244, 198, 40], r: 1.9, price: 8 },
   clime: { name: '연두 색연필', kind: 'wax', rgb: [136, 186, 52], r: 1.9, price: 8 },
+  cgreen:  { name: '초록 색연필', kind: 'wax', rgb: [52, 128, 82], r: 1.9, price: 8 },
   csky: { name: '하늘 색연필', kind: 'wax', rgb: [78, 168, 224], r: 1.9, price: 10 },
+  cblue:   { name: '파란 색연필', kind: 'wax', rgb: [44, 92, 172], r: 1.9, price: 8 },
+  cpurple: { name: '보라 색연필', kind: 'wax', rgb: [118, 70, 160], r: 1.9, price: 10 },
   cpink: { name: '분홍 색연필', kind: 'wax', rgb: [234, 112, 160], r: 1.9, price: 10 },
-  cblack: { name: '검정 색연필', kind: 'wax', rgb: [46, 46, 50], r: 1.9, price: 10 },
+  cbrown:  { name: '갈색 색연필', kind: 'wax', rgb: [128, 84, 50], r: 1.9, price: 10 },
   cgray: { name: '회색 색연필', kind: 'wax', rgb: [138, 140, 146], r: 1.9, price: 8 },
-  b4:      { name: '아주 진한 연필 4B', kind: 'graphite', rgb: [22, 22, 26], r: 1.32, lo: .5, hi: .5, price: 12 },
-  gball:   { name: '초록 볼펜', kind: 'ball', rgb: [26, 110, 70], r: .6, price: 12 },
-  rball:   { name: '빨간 볼펜', kind: 'ball', rgb: [196, 30, 40], r: .6, price: 10 },
-  bball:   { name: '파란 볼펜', kind: 'ball', rgb: [30, 72, 186], r: .6, price: 10 },
-  psign:   { name: '분홍 사인펜', kind: 'sign', rgb: [212, 78, 140], r: 1.5, price: 15 },
+  cblack: { name: '검정 색연필', kind: 'wax', rgb: [46, 46, 50], r: 1.9, price: 10 },
   // 형광펜: 넓적한 촉으로 반투명하게 칠한다(겹치면 진해짐)
   hyellow: { name: '노랑 형광펜', kind: 'hl', rgb: [246, 226, 40], r: 8, price: 12 },
   hpink: { name: '분홍 형광펜', kind: 'hl', rgb: [244, 112, 170], r: 8, price: 12 },
@@ -2835,7 +2838,7 @@ const PAPER_LOCK = {
 const paperOpen = m => !PAPER_LOCK[m] || PAPER_LOCK[m].ok();
 function checkPaperUnlock(){   // 새로 열린 종이를 한 번만 알려 준다
   const seen = store.get('paperSeen', []), name = { lined: '줄공책', vmanu: '세로 원고지', blank: '무지공책' };
-  for (const m in PAPER_LOCK) if (PAPER_LOCK[m].ok() && !seen.includes(m)) { seen.push(m); store.set('paperSeen', seen); setTimeout(() => toast(`축하해요! 자유 쓰기에 ${name[m]}가 열렸어요`), 900); break; }
+  for (const m in PAPER_LOCK) if (PAPER_LOCK[m].ok() && !seen.includes(m)) { seen.push(m); store.set('paperSeen', seen); setTimeout(() => toast(`축하해요! 자유 쓰기에 ${name[m]}${m === "vmanu" ? "가" : "이"} 열렸어요`), 900); break; }
 }
 function setModeButtons(){
   if (!paperOpen(state.mode)) state.mode = 'notebook';
@@ -3813,6 +3816,7 @@ function pickItems(stage, n){
   return pool.slice(0, n);
 }
 function startDictation(stage, items){
+  $('#homeSheet').classList.remove('show');   // 시험 창에서 시작했으면 창을 닫는다(처음 화면으로 돌아올 때 다시 떠 있지 않게)
   setTimeout(() => HNW.start(), 300);
   closeResult();
   setScreen('dict');
