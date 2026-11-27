@@ -462,10 +462,9 @@
   #stageExtra .xbook{display:flex;flex-direction:column;align-items:center;gap:6px;height:auto;min-height:0;padding:4px 6px;background:none;border:0;box-shadow:none;cursor:pointer;font-family:"Nanum Myeongjo","Noto Serif KR",serif;color:#5a4a3a}
   #stageExtra .xbook .bk{position:relative;width:96px;aspect-ratio:300/421;perspective:520px;filter:drop-shadow(1px 3px 3px rgba(60,40,20,.35)) drop-shadow(3px 7px 8px rgba(60,40,20,.16));transform:rotate(-2deg);transition:transform .25s}
   #stageExtra .xbook:hover .bk{transform:rotate(0) translateY(-3px)}
-  #stageExtra .xbook .pg{position:absolute;inset:2% 17% 2% 3%;background:#efe4c8;box-shadow:inset 0 0 0 4px #efe4c8,inset 0 0 0 5.6px rgba(28,20,14,.85),inset 0 0 0 7px #efe4c8,inset 0 0 0 7.6px rgba(28,20,14,.7);writing-mode:vertical-rl;font-family:"SSG Gungseo","Nanum Myeongjo","Noto Serif KR",serif;color:#1c140e;font-size:8.6px;line-height:10.7px;padding:10px 9px 10px 9px;overflow:hidden;text-align:start}
+  #stageExtra .xbook .pg{position:absolute;inset:1.5% 0 1.5% 1.5%;background:#efe4c8;box-shadow:inset 0 0 0 4px #efe4c8,inset 0 0 0 5.6px rgba(28,20,14,.85),inset 0 0 0 7px #efe4c8,inset 0 0 0 7.6px rgba(28,20,14,.7);writing-mode:vertical-rl;font-family:"SSG Gungseo","Nanum Myeongjo","Noto Serif KR",serif;color:#1c140e;font-size:8.6px;line-height:10.7px;padding:10px 9px 10px 9px;overflow:hidden;text-align:start}
   #stageExtra .xbook .pg b,#stageExtra .xbook .pg p{display:block;margin:0;white-space:nowrap;inline-size:auto;block-size:10.7px;border-left:.6px solid rgba(28,20,14,.55);padding-top:2px} #stageExtra .xbook .pg b{font-size:9.6px}   /* 글줄마다 왼쪽에 먹 계선 */
-  #stageExtra .xbook .fl{position:absolute;left:0;top:0;bottom:0;width:83%;transform-style:preserve-3d}
-  #stageExtra .xbook .bind{position:absolute;right:0;top:0;bottom:0;width:17%;background-size:588.24% 100%;background-position:100% 0;z-index:2;box-shadow:-1px 0 1px rgba(60,40,20,.25)}   /* 실로 꿰맨 묶음 — 표지를 넘겨도 그대로 남는다 */
+  #stageExtra .xbook .fl{position:absolute;left:0;top:0;bottom:0;width:100%;transform-style:preserve-3d}
   #stageExtra .xbook .st{position:absolute;top:0;height:100%;transform-origin:100% 50%;transform-style:preserve-3d}
   #stageExtra .xbook .st>.f,#stageExtra .xbook .st>.b{position:absolute;inset:0 -1px;backface-visibility:hidden;-webkit-backface-visibility:hidden;background-repeat:no-repeat}
   #stageExtra .xbook .st>.b{background-color:#dcc08a;background-size:70px auto;background-repeat:repeat;transform:rotateY(180deg);box-shadow:inset 0 0 6px rgba(120,80,30,.18)}   /* 표지 안쪽: 같은 한지 결, 조금 밝게 */
@@ -4449,7 +4448,7 @@ function renderHome(){
     b.innerHTML = st.kind === 'letter'
       // 편지: 봉투(Flow 사진)를 누르면 봉투가 내려가고 접힌 편지가 쑥 올라와 펼쳐진다
       ? `<div class="lw"><img class="env envb" alt="" draggable="false" src="${DASAN_ENV}"><img class="ltr" alt="" draggable="false" src="${DASAN_LTR}"><img class="env envf" alt="" draggable="false" src="${DASAN_ENV}"></div><span>${st.title}</span>`
-      : `<div class="bk"><div class="pg"><b>繼善篇</b><p>子曰爲善者는天報之以福하고</p><p>爲不善者는天報之以禍니라漢</p><p>昭烈이將終에勅後主曰勿以善</p><p>小而不爲하고勿以惡小而爲之</p><p>하라莊子曰一日不念善이면諸</p></div><div class="fl"></div><i class="bind" style="background-image:url(${MSB_COVER})"></i></div><span>${st.title}</span>`;
+      : `<div class="bk"><div class="pg"><b>繼善篇</b><p>子曰爲善者는天報之以福하고</p><p>爲不善者는天報之以禍니라漢</p><p>昭烈이將終에勅後主曰勿以善</p><p>小而不爲하고勿以惡小而爲之</p><p>하라莊子曰一日不念善이면諸</p><p>惡이皆自起니라太公曰見善如</p></div><div class="fl"></div></div><span>${st.title}</span>`;
     b.title = `${st.title} · ${st.sub}`;
     xOpen(b, st);
     b.onpointerenter = () => { cap.textContent = `${st.title} · ${st.sub}`; }; b.onpointerleave = () => { cap.textContent = capOf(pick); }; ex.appendChild(b); }
@@ -4468,7 +4467,7 @@ function renderHome(){
 const XSTRIPS = 9;
 function bookCover(fl){   // 표지(실 묶음 왼쪽까지)를 세로 띠 9개로 잘라 사슬처럼 잇는다 — 띠마다 조금씩 더 꺾여 종이처럼 휜다
   if (fl.firstElementChild) return;
-  const HW = 0.83, sw = HW / XSTRIPS;   // 표지에서 넘어가는 부분의 비율, 띠 하나의 비율(표지 전체 너비 기준)
+  const HW = 1, sw = HW / XSTRIPS;   // 표지에서 넘어가는 부분의 비율, 띠 하나의 비율(표지 전체 너비 기준)
   let par = fl;
   for (let k = 0; k < XSTRIPS; k++) {
     const d = document.createElement('div'); d.className = 'st';
