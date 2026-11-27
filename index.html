@@ -483,6 +483,8 @@
   #stageExtra .xbook{flex:none;position:relative;z-index:1;gap:0!important;padding:0 2px!important}
   #stageExtra .xbook>span{height:30px;display:flex;align-items:flex-end;justify-content:center;font-size:15px!important;letter-spacing:0;white-space:nowrap;margin-top:11px}
   #stageExtra .xbook .bk,#stageExtra .xbook .lw{margin-bottom:-1px;transform:none} #stageExtra .xbook .lw{transform:rotate(1.2deg);transform-origin:50% 100%} #stageExtra .xbook>span{line-height:1}
+  #mode button.lock{opacity:.45} #mode button.lock::after{content:'';display:inline-block;width:9px;height:10px;margin-left:4px;vertical-align:-1px;background:currentColor;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 10'%3E%3Crect x='0' y='4' width='9' height='6' rx='1'/%3E%3Cpath d='M2 4V3a2.5 2.5 0 015 0v1' fill='none' stroke='black' stroke-width='1.3'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 10'%3E%3Crect x='0' y='4' width='9' height='6' rx='1'/%3E%3Cpath d='M2 4V3a2.5 2.5 0 015 0v1' fill='none' stroke='black' stroke-width='1.3'/%3E%3C/svg%3E") center/contain no-repeat}   /* 아직 열리지 않은 종이 */
+  #homeSheet .sheetCard, #homeSheet .sheetCard :is(select,input,button,label,small,p,span,b,summary,option){font-family:"Nanum Myeongjo","Noto Serif KR",serif}   /* 시험·설정 창도 앱 글꼴로 */
   .cs-shop{margin-top:22px;padding:14px 18px 18px;background:#fbf8f0;border-radius:6px;box-shadow:0 2px 3px rgba(60,40,20,.12),0 18px 30px -20px rgba(60,40,20,.4)}
   .cs-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;font-family:"Nanum Myeongjo","Noto Serif KR",serif} .cs-h b{font-size:18px} .cs-h small{font-size:13px;color:var(--ink-soft);font-family:inherit}
   .cs-items{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:12px}
@@ -523,6 +525,9 @@
   <div class="seg" id="mode">
     <button data-mode="notebook" class="on">공책</button>
     <button data-mode="manuscript">원고지</button>
+    <button data-mode="lined" class="lock">줄공책</button>
+    <button data-mode="vmanu" class="lock">세로 원고지</button>
+    <button data-mode="blank" class="lock">무지공책</button>
   </div>
   <label class="size" title="칸 크기"><span class="l">칸 크기</span><input id="cellSize" type="range" step="1"><em id="cellInfo"></em></label>
   <div class="ctl" id="dctl">
@@ -754,20 +759,24 @@ const PAPERS = [
 ];
 const L = {};
 const app = { screen: 'home', layout: null, title: '', marks: [] };
-const SIZE_RANGE = { notebook: [60, 130], manuscript: [36, 72] };  // 낱자 익히기는 minS로 더 크게
+const SIZE_RANGE = { notebook: [60, 130], manuscript: [36, 72] };
+// 자유 쓰기 종이: 공책·원고지에 더해, 연습을 해낸 만큼 열리는 종이(줄공책·세로 원고지·무지공책). 칸 계산은 바탕 종이를 따른다
+const baseOf = m => m === 'lined' || m === 'blank' ? 'notebook' : m === 'vmanu' ? 'manuscript' : m;
+const PAPER_NAME = { notebook: '받아쓰기 공책', manuscript: '원고지', lined: '줄공책', vmanu: '세로 원고지', blank: '무지공책' };
+const FREE_MODES = ['notebook', 'manuscript', 'lined', 'vmanu', 'blank'];  // 낱자 익히기는 minS로 더 크게
 function computeLayout(){
   const vw = desk.clientWidth, vh = desk.clientHeight;
   const pad = vw < 700 ? 8 : 18;
   const W = vw - pad * 2, H = vh - pad * 2;
-  const nb = state.mode === 'notebook';
+  const nb = baseOf(state.mode) === 'notebook';
   const m = clamp(Math.min(W, H) * .045, nb ? 30 : 22, 44);
   const headH = (nb ? 40 : 22) + (app.screen === 'dict' ? 24 : 0), footH = 24;
   const gap = nb ? .32 : .40;
   const innerW = W - 2 * m, innerH = H - 2 * m - headH - footH;
   // 칸 크기는 사용자가 고른다. 한 줄에 들어가는 칸 수는 화면 폭에 맞춰 정해지고, 원고지는 최대 20칸.
-  const R = SIZE_RANGE[state.mode];
+  const R = SIZE_RANGE[baseOf(state.mode)];
   const AL = app.layout;
-  let s = clamp(state.cell[state.mode], R[0], R[1]);
+  let s = clamp(state.cell[baseOf(state.mode)], R[0], R[1]);
   if (AL && AL.minS) s = Math.max(s, AL.minS);
   let cols = AL && AL.cols ? AL.cols : Math.min(nb ? 12 : 20, Math.max(nb ? 4 : 8, Math.floor(innerW / s)));
   if (AL && AL.minCols) cols = Math.max(cols, AL.minCols);
@@ -838,9 +847,37 @@ function drawPaper(){
   if (bookOn() && Book.ready) { const b = curBook(); stampPageNo(g, b.cur, b.pages.length); }
 }
 const px = v => Math.round(v * DPR) + .5; // 선을 픽셀에 맞춰 또렷하게
+// 열리는 종이 세 가지(자유 쓰기). 잉크는 칸과 상관없이 이어 그려지므로 선만 다르게 그린다
+function drawFreePaper(g, serif){
+  const D = DPR, s = L.s, X0 = L.gx, Y0 = L.gy, W = L.gridW, H = L.gridH;
+  g.save(); g.lineCap = 'butt';
+  if (state.mode === 'lined') {
+    const step = s * (1 + L.gap) / 2, blue = 'rgba(80,116,168,.5)';
+    g.strokeStyle = blue; g.lineWidth = 1 * D; g.beginPath();
+    for (let y = Y0 + step; y <= Y0 + H + 1; y += step) { g.moveTo(px(X0 - L.m * .4), px(y)); g.lineTo(px(X0 + W + L.m * .4), px(y)); }
+    g.stroke();
+    g.strokeStyle = 'rgba(200,76,58,.55)'; g.beginPath(); g.moveTo(px(X0 - 4), px(L.m * .4)); g.lineTo(px(X0 - 4), px(L.h - L.m * .3)); g.stroke();   // 왼쪽 여백 붉은 줄
+    g.fillStyle = 'rgba(80,90,110,.8)'; g.font = `700 ${15 * D}px ${serif}`; g.textAlign = 'left'; g.fillText(app.title || '줄공책', X0 * D, (L.m + 22) * D);
+  } else if (state.mode === 'blank') {
+    g.fillStyle = 'rgba(120,110,95,.55)'; g.font = `700 ${15 * D}px ${serif}`; g.textAlign = 'left'; g.fillText(app.title || '무지공책', X0 * D, (L.m + 22) * D);
+  } else {   // 세로 원고지: 오른쪽에서 왼쪽으로, 위에서 아래로 쓰는 칸 줄
+    const red = 'rgba(200,76,58,.82)', cg = s * .32, n = Math.max(1, Math.floor((W + cg) / (s + cg))), k = Math.max(1, Math.floor(H / s));
+    const w = n * s + (n - 1) * cg, x0 = X0 + (W - w) / 2, h = k * s, y0 = Y0 + (H - h) / 2, o = 6;
+    g.strokeStyle = red; g.fillStyle = red; g.lineWidth = 1.8 * D;
+    g.strokeRect(px(x0 - o), px(y0 - o), Math.round((w + 2 * o) * D), Math.round((h + 2 * o) * D));
+    g.lineWidth = 1 * D;
+    for (let c = 0; c < n; c++) { const x = x0 + w - (c + 1) * s - c * cg;
+      g.strokeRect(px(x), px(y0), Math.round(s * D), Math.round(h * D));
+      g.beginPath(); for (let r = 1; r < k; r++) { const y = px(y0 + r * s); g.moveTo(px(x), y); g.lineTo(px(x + s), y); } g.stroke(); }
+    g.font = `${11.5 * D}px ${serif}`; g.textAlign = 'right'; g.fillText(`(${k}×${n})`, (x0 + w + o) * D, (y0 + h + o + 16) * D);
+    g.textAlign = 'left'; g.fillText('세 로 원 고 지', (x0 - o) * D, (y0 + h + o + 16) * D);
+  }
+  g.restore();
+}
 function drawGrid(g){
   const D = DPR, s = L.s, red = 'rgba(200,76,58,.82)';
   const serif = '"Nanum Myeongjo","Noto Serif KR","Batang","AppleMyungjo",serif';
+  if (app.screen === 'free' && (state.mode === 'lined' || state.mode === 'blank' || state.mode === 'vmanu')) { drawFreePaper(g, serif); return; }
   g.save();
   g.strokeStyle = red; g.fillStyle = red; g.lineCap = 'butt';
   // 바깥 굵은 테두리
@@ -1363,11 +1400,14 @@ function ensureAudio(){
    종이에 닿는 동안의 주파수 모양을 1/6옥타브(60Hz부터)로 재고, 앱의 잡음·공통 필터 몫을 덜어 낸 값(dB).
    tps: 1초에 튀는 '사각' 알갱이 수, crest: 알갱이 세기. 소리는 녹음이 아니라 이 값으로 그때그때 만든다(반응이 즉각) */
 const TEX = {"f0":60,"step":6,"pens":{"hb":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-22.6,-22.6,-21.2,-20.8,-23.3,-24.0,-22.8,-22.1,-18.6,-12.9,-8.0,-4.3,-1.2,0.5,-0.1,-3.0,-7.1,-7.9,-1.8,7.0,12.2,12.2,11.0,11.6,11.1,9.4,8.8,9.5,10.4,11.3,13.4,15.2,15.9,15.6,13.9,13.9,16.5,18],"tps":96.2,"crest":1.87},"b2":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-3.8,-5.7,-7.3,-8.6,-10.0,-10.4,-9.1,-6.5,-2.8,0.9,3.4,4.8,5.9,6.5,6.2,4.5,2.3,1.0,0.6,0.7,0.4,0.1,0.1,-0.2,-0.7,-1.5,-1.6,-1.2,-1.4,-0.8,1.2,3.1,5.1,6.1,6.5,-4.9,-23.3,-25.1],"tps":106.5,"crest":1.91},"ball":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-15.1,-12.7,-13.2,-14.2,-13.0,-11.4,-10.5,-9.6,-8.5,-6.5,-2.7,1.4,3.3,4.6,5.6,4.7,4.2,4.7,5.3,5.2,4.2,3.8,3.6,2.2,0.8,1.4,3.4,3.6,1.3,0.3,0.0,-1.2,-1.7,-2.3,-4.2,-5.6,-6.3,-6.8],"tps":230.9,"crest":3.0},"fountain":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,0.4,-0.8,-2.8,-5.9,-8.7,-9.1,-7.8,-5.3,-2.0,1.8,5.7,7.6,7.9,7.9,7.8,7.4,5.8,3.5,2.6,2.5,2.1,1.5,-0.3,-2.6,-4.0,-4.9,-5.0,-4.6,-2.5,-0.2,-0.6,-2.2,-3.5,-4.1,-4.7,-14.7,-30,-30],"tps":160.4,"crest":2.14},"sign":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-13.0,-12.1,-11.3,-10.4,-10.3,-10.5,-9.4,-6.7,-3.9,-1.6,1.1,3.6,6.1,9.6,11.9,11.3,9.8,7.9,4.2,1.3,0.6,0.2,0.0,-0.5,-2.3,-3.4,-2.8,-2.3,-2.6,-3.0,-3.2,-2.8,-2.8,-4.0,-6.4,-16.5,-30,-30],"tps":228.0,"crest":4.18},"wax":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,2.4,3.8,3.6,2.4,0.9,1.0,1.9,2.1,2.3,2.4,3.3,5.2,6.3,6.9,7.8,7.7,6.3,5.5,4.3,2.3,1.0,0.6,1.4,1.6,-1.1,-4.9,-7.1,-7.5,-7.5,-7.7,-8.6,-11.3,-13.1,-12.7,-12.1,-8.7,-2.8,0.2],"tps":196.4,"crest":2.65},"sharp":{"g":[-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-20.0,-7.5,-8.8,-10.2,-8.6,-7.7,-9.4,-11.5,-11.9,-10.6,-8.3,-6.2,-5.0,-2.5,0.6,1.0,-0.6,-1.7,-1.9,-2.2,-2.5,-1.8,1.7,4.9,4.4,2.7,1.6,1.3,2.6,6.1,8.7,10.8,15.3,18,18,18,3.5,-17.1,-14.9],"tps":502.7,"crest":2.41}}};
-const TEXKEY = () => state.pen === 'ball' ? null : (({ red: 'wax' })[state.pen] || state.pen);   // 볼펜은 즉각 반응하던 원래 소리 그대로
+const TEXKEY = () => { const k = state.pen, K = PENS[k] && PENS[k].kind;   // 새로 산 필기구도 같은 종류의 녹음 질감을 쓴다
+  if (K === 'ball' || K === 'hl') return null;   // 볼펜은 즉각 반응하던 원래 소리, 형광펜은 따로 만든 '스윽'
+  if (K === 'wax') return 'wax'; if (K === 'sign') return 'sign'; if (K === 'fountain') return 'fountain';
+  return k === 'b4' ? 'b2' : k; };
 /* 연필(HB·2B·샤프): 알갱이 합성. 실제 녹음(교수님이 고른 「pencil」·「pencil on paper」·샤프 녹음)에서 40~65ms 조각을
    무작위로 집어 겹쳐 뿌린다. 코드가 그때그때 뿌리므로 반응이 즉각이고, 속도·필압에 따라 크기·밝기·알갱이 빠르기가 바뀐다 */
-const PGRAIN = { hb: 'g_hb', b2: 'g_b2', sharp: 'g_hb' };   // 샤프: 날카로운 샤프 녹음은 거슬려서(교수님) HB 결을 가늘고 작게
-const GCFG = { hb: { amt: .62, len: [.035, .06], rate: 1 }, b2: { amt: .7, len: [.045, .07], rate: 1 }, sharp: { amt: .3, len: [.03, .05], rate: 1.12 } };
+const PGRAIN = { hb: 'g_hb', b2: 'g_b2', b4: 'g_b2', sharp: 'g_hb' };   // 샤프: 날카로운 샤프 녹음은 거슬려서(교수님) HB 결을 가늘고 작게
+const GCFG = { hb: { amt: .62, len: [.035, .06], rate: 1 }, b2: { amt: .7, len: [.045, .07], rate: 1 }, sharp: { amt: .3, len: [.03, .05], rate: 1.12 }, b4: { amt: .78, len: [.055, .085], rate: .86 } };   // 4B: 더 무르고 굵은 심 → 낮고 뭉근하게
 function playGrain(t){
   const ac = Snd.ac, b = Snd.gBuf, C = Snd.gC, L = C.len[0] + Math.random() * (C.len[1] - C.len[0]), off = Math.random() * Math.max(0, b.duration - L - .01);
   const src = ac.createBufferSource(); src.buffer = b; src.playbackRate.value = Snd.gRate * (.96 + Math.random() * .08);
@@ -1508,6 +1548,7 @@ function sndParams(tool, th){
   if (tool === 'graphite' && state.pen === 'sharp') return Object.assign({}, pencilSnd(0, 0), { hp: 2400, lp: 11000, pk: 6800, q: 2.6, tr: [3800, 4600], amt: .4 });
   if (tool === 'wax') return pencilSnd(1, 1);   // 무른 밀랍 심: 굵고 뭉툭한 연필처럼 낮고 부드럽게
   if (tool === 'ball') return SND_BALL;
+  if (tool === 'hl') return SND_HL;
   if (tool === 'fountain') return FOUNTAIN.soft;   // 만년필 소리는 하나(Pixabay 좋아요 51 레퍼런스 기준)
   if (tool === 'sign') return { hp: 300, lp: 2200, pk: 1200, q: 1, db: 2, amt: .5, atk: .006, rel: .02, gMs: null, tr: null };
   return pencilSnd(state.pen === 'b2' ? 1 : 0, typeof app !== 'undefined' && app.blunt ? app.blunt() : 0);
@@ -1540,6 +1581,11 @@ const SND_BALL = { hp: 320, lp: 6000, pk: 2200, q: 1.4, db: 3, amt: .42, atk: .0
   body: { f: 800, q: 1.2, db: 5 },
   gMs: [1, 1.6], gRate: [25, 40], gAmp: .22, tr: [1900, 2300], trMs: [.003, .004],
   turn: { ratio: .45, lp: 1600, tick: { f: 3000, ms: .0025, amp: .25 } } };
+/* 형광펜(참고: 효과음 설명 「넓고 젖은 펠트 촉은 부드럽고 넓은 '끽', 긴 획은 하나로 이어진 끌림」):
+   넓적한 펠트가 종이를 쓸고 지나가는 중저음 '스윽'. 종이 결 알갱이는 거의 없고, 획 첫머리에 살짝 '끽' */
+const SND_HL = { hp: 260, lp: 3600, pk: 1500, q: .9, db: 4, amt: .55, atk: .006, rel: .03,
+  body: { f: 520, q: .9, db: 5 }, gMs: [2.5, 4], gRate: [10, 16], gAmp: .12, tr: null, squeak: true,
+  turn: { ratio: .6, lp: 1500, tick: null } };
 // 만년필(제미나이 분석, 받침은 '공책 여러 장 + 책상'). 프리셋은 고를 수 있다
 const FOUNTAIN = {
   fine: { name: '사각사각 가는 촉', hp: 450, lp: 6400, pk: 3800, q: 2.6, db: 4.5, body: { f: 700, q: 1.2, db: 2 }, amt: .45,
@@ -1610,6 +1656,7 @@ function soundMove(v, p, tool, dist, turn){
     const trMs = P.trMs || [.005, .008];
     if (P.tr) noiseBurst(now, P.tr[0] + Math.random() * (P.tr[1] - P.tr[0]), 1.2, Math.max(target, .08) * (P.trAmp || .7), trMs[0] + Math.random() * (trMs[1] - trMs[0]));
     if (P.thump) noiseBurst(now, P.thump.f, 1, Math.max(target, .08) * P.thump.amp, P.thump.ms);
+    if (P.squeak && Math.random() < .7) feltSqueak(now, Math.max(target, .1));
   }
   Snd.sg.gain.setTargetAtTime(target, now, target > Snd.cur ? (Snd.atk || P.atk) : (Snd.rel || P.rel));
   Snd.cur = target;
@@ -1628,6 +1675,13 @@ function soundMove(v, p, tool, dist, turn){
   }
   Snd.bg.gain.setTargetAtTime(0, now, .03);
   finishMove();
+}
+function feltSqueak(t, amp){   // 젖은 펠트 촉이 종이에 붙었다 미끄러지는 짧은 '끽'(높이가 살짝 오르내림)
+  const ac = Snd.ac, o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain(), f0 = 1500 + Math.random() * 700, d = .05 + Math.random() * .05;
+  o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0 * (1.08 + Math.random() * .1), t + d * .4); o.frequency.linearRampToValueAtTime(f0 * .94, t + d);
+  f.type = 'bandpass'; f.frequency.value = f0; f.Q.value = 3;
+  g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp * .09, t + .008); g.gain.exponentialRampToValueAtTime(.0003, t + d);
+  o.connect(f); f.connect(g); g.connect(Snd.master); o.start(t); o.stop(t + d + .02);
 }
 function finishMove(){
   Snd.last = performance.now();
@@ -1729,7 +1783,7 @@ function loadSamples(){
 function playSample(k, gain, rate){
   ensureAudio(); if (!Snd.ok || state.vol === 0) return false;
   loadSamples(); const buf = Snd.samples && Snd.samples[k];
-  if (!buf) { if (!Snd.sampleP || k in Snd.samples) return false; Snd.sampleP.then(() => { if (Snd.samples[k]) playSample(k, gain); }); return true; }   // 처음 한 번은 녹음을 푸는 동안 아주 잠깐 기다렸다 낸다
+  if (!buf) { if (!Snd.sampleP || k in Snd.samples) return false; Snd.sampleP.then(() => { if (Snd.samples[k]) playSample(k, gain, rate); }); return true; }   // 처음 한 번은 녹음을 푸는 동안 아주 잠깐 기다렸다 낸다
   const s = Snd.ac.createBufferSource(); s.buffer = buf; s.playbackRate.value = (rate || 1) * (1 + (Math.random() - .5) * .06);   // 매번 아주 조금씩 다르게
   const g = Snd.ac.createGain(); g.gain.value = (gain || 1) * VOL[state.vol] / .45 * .55;
   s.connect(g); g.connect(Snd.ac.destination); s.start();
@@ -2056,7 +2110,18 @@ const PEN_ICON = {
 // 색연필·형광펜: 메뉴엔 한 줄씩, 가진 색만 동그라미로 고른다(색연필은 빨강이 기본)
 const CCOL = ['red', 'corange', 'cyellow', 'clime', 'cgreen', 'csky', 'cblue', 'cpurple', 'cpink', 'cbrown', 'cblack'];
 const HCOL = ['hyellow', 'hpink', 'hgreen', 'hblue'];
-const PGROUPS = [{ lead: 'red', keys: CCOL, label: '색연필', st: 'ccolor', snd: () => playSample('waxdown', 1) }, { lead: 'hyellow', keys: HCOL, label: '형광펜', st: 'hcolor', snd: () => playSample('cap', 1) || soundCapPop() }];
+/* 필기구를 고를 때 나는 소리(참고: 효과음 설명 「뚜껑을 뺄 때 마른 '뽁', 끼울 때 단단한 '딸깍'」, 노크식 볼펜의 '딸깍').
+   같은 종류는 같은 녹음을 쓰되, 굵기·크기에 맞게 높낮이를 조금씩 바꾼다 */
+function penPickSound(k){
+  const K = PENS[k] && PENS[k].kind, j = .97 + Math.random() * .06;
+  if (K === 'ball') { if (!playSample('click', 1, (k === 'ball' ? 1 : 1.06) * j)) soundKnock(); return; }   // 노크 '딸깍'
+  if (K === 'graphite') { if (!playSample('down', .9, ({ hb: 1, b2: .94, b4: .88 })[k] || 1)) soundClink(); return; }   // 나무 연필 내려놓는 '톡'(진할수록 굵은 심 → 조금 낮게)
+  if (K === 'wax') { playSample('waxdown', 1, j); return; }   // 종이 감은 색연필 '툭'
+  if (K === 'sign') { if (!playSample('cap', 1, k === 'sign' ? 1 : 1.05)) soundCapPop(); return; }   // 사인펜 뚜껑 '뽁'
+  if (K === 'hl') { if (!playSample('cap', 1.15, .82 * j)) soundCapPop(); return; }   // 형광펜: 뚜껑이 크고 두꺼워 더 낮고 굵은 '뽁'
+  if (K === 'fountain') soundFountainCap();   // 만년필 쇠 뚜껑 '찰칵'
+}
+const PGROUPS = [{ lead: 'red', keys: CCOL, label: '색연필', st: 'ccolor', snd: () => penPickSound('red') }, { lead: 'hyellow', keys: HCOL, label: '형광펜', st: 'hcolor', snd: () => penPickSound('hyellow') }];
 const groupOf = k => PGROUPS.find(G => G.keys.includes(k));
 const groupNow = G => { const c = store.get(G.st, G.lead); return G.keys.includes(c) && penOwned(c) ? c : (G.keys.find(penOwned) || G.lead); };
 const ccolNow = () => groupNow(PGROUPS[0]);
@@ -2103,12 +2168,7 @@ function setPenUI(){
       e.stopPropagation();
       const kk = groupOf(k) ? groupNow(groupOf(k)) : k;
       state.pen = kk; store.set('pen', kk); setPenUI(); m.classList.remove('open');
-      if (k === 'ball' && !playSample('click', 1)) soundKnock();
-      if (k === 'sharp' && !playSample('sclick', 1.3)) soundKnock();
-      if (PENS[k].kind === 'graphite' && !PENS[k].fixed && !playSample('down', .9)) soundClink();
-      if (PENS[k].kind === 'wax') playSample('waxdown', 1);   // 종이를 감은 색연필을 내려놓는 '툭'(교수님 녹음): 나무 연필보다 가볍고 둔한 소리
-      if ((k === 'sign' || PENS[kk].kind === 'hl') && !playSample('cap', 1)) soundCapPop();   // 사인펜: 뚜껑 여는 소리(Pixabay 「Pen Cap」 좋아요 5 — 사인펜(채점용 펜) 뚜껑 녹음. 울림 꼬리는 잘라 건조하게)
-      if (k === 'fountain') soundFountainCap();         // 만년필: 쇠 뚜껑을 빼는 '찰칵'   // 연필(HB·2B): 연필 내려놓는 소리
+      penPickSound(kk);   // 필기구 종류마다 고르는 소리
       selectTool('pencil');
     });
   }
@@ -2184,7 +2244,7 @@ function curBook(){ if (typeof app !== 'undefined' && app.copy && Book.copy) ret
 const curPage = () => { const b = curBook(); return b.pages[b.cur]; };
 const docTitle = d => d.title || `원고 ${d.n || 1}`;
 async function loadBooks(){
-  for (const m of ['notebook', 'manuscript']) {
+  for (const m of FREE_MODES) {
     let b = await IDB.get(m);
     if (b && b.pages) b = { docs: [Object.assign(newDocObj(1), { pages: b.pages, cur: b.cur | 0 })], cur: 0 };   // 예전 저장(원고 하나)을 옮긴다
     if (b && b.docs && b.docs.length) { b.cur = clamp(b.cur | 0, 0, b.docs.length - 1); for (const d of b.docs) d.cur = clamp(d.cur | 0, 0, d.pages.length - 1); Book[m] = b; }
@@ -2200,7 +2260,7 @@ function bookSave(){
   const save = () => { if (active) { Book.t = setTimeout(save, 600); return; } IDB.set(m, Book[m]); };
   Book.t = setTimeout(save, 1200);
 }
-function bookFlush(){ if (!Book.ready) return; clearTimeout(Book.t); for (const m of ['notebook', 'manuscript']) if (Book[m]) IDB.set(m, Book[m]); }
+function bookFlush(){ if (!Book.ready) return; clearTimeout(Book.t); for (const m of FREE_MODES) if (Book[m]) IDB.set(m, Book[m]); }
 window.addEventListener('pagehide', bookFlush);
 document.addEventListener('visibilitychange', () => { if (document.hidden) bookFlush(); });
 function showPage(){
@@ -2219,7 +2279,7 @@ function stampPageNo(g, idx, total){
   g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   g.fillStyle = 'rgba(200,76,58,.85)'; g.font = `${13 * D}px ${serif}`; g.textAlign = 'right'; g.textBaseline = 'middle';
   g.fillText(`( ${idx + 1} / ${total} )`, (L.w - 16) * D, Math.max(14, Math.min(22, (L.gy || 30) * .45)) * D);
-  if (L.nb || app.screen === 'dict') {   // 줄 번호는 장을 넘겨도 이어진다(1장 1~4 → 2장 5~8)
+  if ((L.nb && !(app.screen === 'free' && state.mode !== 'notebook')) || app.screen === 'dict') {   // 줄 번호는 장을 넘겨도 이어진다(1장 1~4 → 2장 5~8)
     g.fillStyle = 'rgba(200,76,58,.82)'; g.font = `${12 * D}px ${serif}`;
     const nRows = app.screen === 'dict' && curPage().items ? curPage().items.length : L.rows;   // 받아쓰기 마지막 장: 문제가 있는 줄까지만 번호
     for (let r = 0; r < nRows; r++) g.fillText(String(idx * L.rows + r + 1), (L.gx - 9) * D, (L.gy + r * L.s * (1 + L.gap) + L.s / 2) * D);
@@ -2281,7 +2341,7 @@ function openDocs(){ renderDocs(); docsEl.classList.add('show'); }
 function closeDocs(){ docsEl.classList.remove('show'); }
 function renderDocs(){
   const lib = libOf(state.mode), cur = curBook();
-  docsEl.querySelector('.kind').textContent = state.mode === 'notebook' ? '받아쓰기 공책' : '원고지';
+  docsEl.querySelector('.kind').textContent = PAPER_NAME[state.mode] || '원고지';
   docsEl.querySelector('#docTitle').value = cur.title || '';
   docsEl.querySelector('#docTitle').placeholder = docTitle(cur);
   const list = docsEl.querySelector('.list'); list.innerHTML = '';
@@ -2758,11 +2818,26 @@ function newSheet(msg){
 }
 $('#tearBtn').addEventListener('click', () => tearButton());
 $('#newsheet').addEventListener('click', () => (bookOn() && Book.ready) ? newPage() : newSheet('새 종이를 꺼냈어요'));
-function setModeButtons(){ document.querySelectorAll('#mode button').forEach(b => b.classList.toggle('on', b.dataset.mode === state.mode)); }
+// 종이 열기: 따라 쓰기를 끝까지 → 줄공책, 받아쓰기 10급수(80% 이상) → 세로 원고지, 받아쓰기 모든 급수 → 무지공책
+const passedStages = () => { try { return STAGES.filter(st => { const x = rec.stats[st.id]; return x && x.n && x.ok / x.n >= .8; }).length; } catch (e) { return 0; } };
+const PAPER_LOCK = {
+  lined: { ok: () => !!store.get('copyDone', 0), hint: '따라 쓰기를 마지막 급수까지 다 쓰면 줄공책이 열려요' },
+  vmanu: { ok: () => passedStages() >= 10, hint: () => `받아쓰기 10급수를 80점 넘게 마치면 세로 원고지가 열려요 (지금 ${passedStages()}급수)` },
+  blank: { ok: () => { try { return passedStages() >= STAGES.length; } catch (e) { return false; } }, hint: () => `받아쓰기 모든 급수(${STAGES.length}개)를 80점 넘게 마치면 무지공책이 열려요 (지금 ${passedStages()}급수)` } };
+const paperOpen = m => !PAPER_LOCK[m] || PAPER_LOCK[m].ok();
+function checkPaperUnlock(){   // 새로 열린 종이를 한 번만 알려 준다
+  const seen = store.get('paperSeen', []), name = { lined: '줄공책', vmanu: '세로 원고지', blank: '무지공책' };
+  for (const m in PAPER_LOCK) if (PAPER_LOCK[m].ok() && !seen.includes(m)) { seen.push(m); store.set('paperSeen', seen); setTimeout(() => toast(`축하해요! 자유 쓰기에 ${name[m]}가 열렸어요`), 900); break; }
+}
+function setModeButtons(){
+  if (!paperOpen(state.mode)) state.mode = 'notebook';
+  document.querySelectorAll('#mode button').forEach(b => { b.classList.toggle('on', b.dataset.mode === state.mode); b.classList.toggle('lock', !paperOpen(b.dataset.mode)); });
+}
 document.querySelectorAll('#mode button').forEach(b => b.addEventListener('click', () => {
   if (b.dataset.mode === state.mode) return;
+  const lk = PAPER_LOCK[b.dataset.mode]; if (lk && !lk.ok()) { toast(typeof lk.hint === 'function' ? lk.hint() : lk.hint); return; }
   state.mode = b.dataset.mode; store.set('mode', state.mode); setModeButtons(); setSizeUI();
-  const msg = state.mode === 'notebook' ? '받아쓰기 공책을 폈어요' : '원고지를 꺼냈어요';
+  const msg = { notebook: '받아쓰기 공책을 폈어요', manuscript: '원고지를 꺼냈어요', lined: '줄공책을 폈어요', vmanu: '세로 원고지를 꺼냈어요', blank: '무지공책을 폈어요' }[state.mode];
   (bookOn() && Book.ready) ? switchBook(msg) : newSheet(msg);
 }));
 $('#finger').addEventListener('click', () => {
@@ -2807,7 +2882,7 @@ function exportPNG(withDate){
   compositeInk(g, LAYC);
   const d = new Date(), z = n => String(n).padStart(2, '0');
   if (withDate) stampDate(g, d);
-  const name = `${state.mode === 'notebook' ? '공책' : '원고지'}_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.png`;
+  const name = `${(PAPER_NAME[state.mode] || '원고지').replace('받아쓰기 ', '').replace(' ', '')}_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}_${z(d.getHours())}${z(d.getMinutes())}.png`;
   c.toBlob(b => {
     if (!b) return;
     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name;
@@ -2857,7 +2932,7 @@ function makePDF(imgs){
   return new Blob(parts, { type: 'application/pdf' });
 }
 function fileStem(doc, d){
-  const z = n => String(n).padStart(2, '0'), kind = state.mode === 'notebook' ? '공책' : '원고지';
+  const z = n => String(n).padStart(2, '0'), kind = (PAPER_NAME[state.mode] || '원고지').replace('받아쓰기 ', '').replace(' ', '');
   const t = doc ? docTitle(doc).replace(/[\\/:*?"<>|]/g, '').trim() : '';
   return `${kind}${t ? '_' + t : ''}_${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}`;
 }
@@ -2892,12 +2967,12 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) Snd.ac.suspend(); else if (state.vol) Snd.ac.resume();
 });
 function setSizeUI(){
-  const R = SIZE_RANGE[state.mode], el = $('#cellSize');
-  el.min = R[0]; el.max = R[1]; el.value = clamp(state.cell[state.mode], R[0], R[1]);
+  const R = SIZE_RANGE[baseOf(state.mode)], el = $('#cellSize');
+  el.min = R[0]; el.max = R[1]; el.value = clamp(state.cell[baseOf(state.mode)], R[0], R[1]);
 }
 let szT = 0;
 $('#cellSize').addEventListener('input', e => {
-  state.cell[state.mode] = +e.target.value; store.set('cell', state.cell);
+  state.cell[baseOf(state.mode)] = +e.target.value; store.set('cell', state.cell);
   cancelAnimationFrame(szT); szT = requestAnimationFrame(applyLayout);  // 쓴 글씨는 칸에 맞춰 함께 커지고 작아진다
 });
 function setPaperUI(){
@@ -3613,9 +3688,9 @@ function soundZip(){
     s.connect(bp); bp.connect(g); g.connect(out); s.start(t, Math.random() * 1.5); s.stop(t + dur + .01); };
   let t = t0, k = 0;
   while (t < t0 + D) { const p = (t - t0) / D, rate = 38 + 70 * Math.sin(Math.min(1, p * 1.6) * Math.PI / 2);
-    burst(t, 2600 + 2400 * Math.random() + 900 * p, 2.6, (.05 + .03 * Math.random()) * v * (1 - .35 * p), .014); t += 1 / rate * (.75 + .5 * Math.random()); k++; }
-  burst(t0, 1800, .9, .02 * v, D * .9);                         // 천이 스치는 바탕 소리
-  burst(t0 + D + .02, 1200, 1.4, .07 * v, .05);                  // 끝에 손잡이가 멈추는 '탁'
+    burst(t, 2600 + 2400 * Math.random() + 900 * p, 2.6, (.16 + .08 * Math.random()) * v * (1 - .35 * p), .018); t += 1 / rate * (.75 + .5 * Math.random()); k++; }
+  burst(t0, 1800, .9, .06 * v, D * .9);                         // 천이 스치는 바탕 소리
+  burst(t0 + D + .02, 1200, 1.4, .2 * v, .06);                  // 끝에 손잡이가 멈추는 '탁'
 }
 const CASE_LIN = [[178,204],[210,188],[240,171],[270,158],[300,141],[330,128],[360,115],[390,104],[420,98],[450,96],[480,101],[510,111],[540,123],[570,136],[600,153],[630,165],[660,181],[690,192],[716,202],[715,206],[670,241],[620,266],[560,291],[500,311],[430,324],[360,306],[300,278],[230,241],[180,208]];   // 열린 필통 안쪽(지퍼 안) 테두리, 그림 900×522 기준
 const inLin = (x, y) => { let c = false; for (let i = 0, j = CASE_LIN.length - 1; i < CASE_LIN.length; j = i++) { const [xi, yi] = CASE_LIN[i], [xj, yj] = CASE_LIN[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
@@ -3668,7 +3743,7 @@ function zipTick(last){
   const ac = Snd.ac, out = Snd.out || Snd.master, t = ac.currentTime + .005, v = VOL[state.vol] / .45;
   const s = ac.createBufferSource(); s.buffer = Snd.buf; const bp = ac.createBiquadFilter(); bp.type = 'bandpass';
   bp.frequency.value = last ? 1200 : 2600 + 2600 * Math.random(); bp.Q.value = last ? 1.4 : 2.6;
-  const g = ac.createGain(), amp = (last ? .07 : .05 + .03 * Math.random()) * v, dur = last ? .05 : .016;
+  const g = ac.createGain(), amp = (last ? .22 : .16 + .08 * Math.random()) * v, dur = last ? .06 : .02;   // 끌 때 '드르륵'이 또렷이 들리게
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(amp, t + .0015); g.gain.exponentialRampToValueAtTime(.0003, t + dur);
   s.connect(bp); bp.connect(g); g.connect(out); s.start(t, Math.random() * 1.5); s.stop(t + dur + .01);
 }
@@ -3704,7 +3779,7 @@ function zipTick(last){
       setZ(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); else { busy = false; pc.classList.remove('opening'); if (zp === 0) setZ(0); done && done(); } };
     requestAnimationFrame(step); };
   const finish = () => { zipTick(true); setTimeout(() => { openCase(); setTimeout(() => { quiet = true; setZ(0); lastTick = 0; quiet = false; }, 450); }, 120); };
-  const autoOpen = () => { if (busy || drag) return; tween(1, finish); };
+  const autoOpen = () => { if (busy || drag) return; soundZip(); quiet = true; tween(1, () => { quiet = false; finish(); }); };   // 톡 누르면 '지이익' 한 번에
   pc.addEventListener('pointerdown', e => {
     if (busy) return; const r = pc.getBoundingClientRect(), fx = (e.clientX - r.left) / r.width * 100, fy = (e.clientY - r.top) / r.height * 100;
     const px = ZIP0 + (ZIP1 - ZIP0) * zp;
@@ -4107,7 +4182,7 @@ function copySync(){
 function copyNextStage(done){
   if (CP.st.extra) { toast(done ? `${CP.st.title} 문장을 다 따라 썼어요!` : '다른 문장을 골라 봐요'); setTimeout(() => { goHome(); openStages('copy'); }, done ? 1200 : 300); return; }
   const nst = STAGES[STAGES.indexOf(CP.st) + 1];
-  if (!nst) { toast('마지막 급수까지 다 따라 썼어요! 이제 받아쓰기를 해 봐요'); store.set('copyAt', { st: STAGES[0].id, i: 0 }); setTimeout(() => { goHome(); openStages('dict'); }, 1200); return; }
+  if (!nst) { const first = !store.get('copyDone', 0); store.set('copyDone', 1); toast(first ? '마지막 급수까지 다 따라 썼어요! 자유 쓰기에 줄공책이 열렸어요' : '마지막 급수까지 다 따라 썼어요! 이제 받아쓰기를 해 봐요'); store.set('copyAt', { st: STAGES[0].id, i: 0 }); setTimeout(() => { goHome(); openStages('dict'); }, 1200); return; }
   toast(done ? `${CP.st.id}급 문장을 다 따라 썼어요! ${nst.id}급으로 넘어가요` : `${nst.id}급으로 넘어가요`);
   sheet.classList.add('out'); setTimeout(() => { startCopy(nst, 0); sheet.classList.remove('out'); }, done ? 900 : 300);
 }
@@ -4423,6 +4498,7 @@ function renderHome(){
   $('#enrollProg').textContent = n || ns ? `${n + ns}자 익힘` : '';
   let weak = null;
   for (const st of STAGES) { const sc = stageScore(st.id); if (sc !== null && (!weak || sc < weak.sc)) weak = { st, sc }; }
+  checkPaperUnlock();
   const next = STAGES.find(st => !rec.stats[st.id]) || STAGES[0];
   const pick = weak && weak.sc < .75 ? weak.st : next; app.pick = pick;
   $('#dictHint').textContent = `${pick.id} · ${pick.title}`;
