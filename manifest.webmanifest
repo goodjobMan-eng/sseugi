@@ -1,6 +1,6 @@
 {
-  "name": "쓰기공책 — 원고지 받아쓰기",
-  "short_name": "쓰기공책",
+  "name": "사각사각 공책 — 원고지 받아쓰기",
+  "short_name": "사각사각 공책",
   "start_url": "./index.html",
   "scope": "./",
   "display": "fullscreen",
