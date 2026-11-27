@@ -3496,6 +3496,22 @@ function soundZip(){
   burst(t0, 1800, .9, .02 * v, D * .9);                         // 천이 스치는 바탕 소리
   burst(t0 + D + .02, 1200, 1.4, .07 * v, .05);                  // 끝에 손잡이가 멈추는 '탁'
 }
+const CASE_LIN = [[178,204],[210,188],[240,171],[270,158],[300,141],[330,128],[360,115],[390,104],[420,98],[450,96],[480,101],[510,111],[540,123],[570,136],[600,153],[630,165],[660,181],[690,192],[716,202],[715,206],[670,241],[620,266],[560,291],[500,311],[430,324],[360,306],[300,278],[230,241],[180,208]];   // 열린 필통 안쪽(지퍼 안) 테두리, 그림 900×522 기준
+const inLin = (x, y) => { let c = false; for (let i = 0, j = CASE_LIN.length - 1; i < CASE_LIN.length; j = i++) { const [xi, yi] = CASE_LIN[i], [xj, yj] = CASE_LIN[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c; } return c; };
+// 밖으로 걸쳐 나오는 도구: 길이의 1/6 넘게 나가지 않고, 한쪽 끝은 반드시 필통 안에
+function outPlace(k, side){
+  const L = TOOL_MM[k] * CASE_PXMM * 9, h = caseHash(k); let best = null;
+  for (let cy = 14; cy <= 66; cy += 1.5) for (let cx = 36; cx <= 64; cx += 2) for (let r = -24; r <= 24; r += 3) {
+    if ((side < 0) !== (cy < 40)) continue;
+    const c = Math.cos(r * Math.PI / 180), sn = Math.sin(r * Math.PI / 180), X = cx * 9, Y = cy * 5.22; let out = 0; const N = 36;
+    for (let i = 0; i <= N; i++) { const t = (i / N - .5) * L; if (!inLin(X + t * c, Y + t * sn)) out++; }
+    const a = inLin(X - L / 2 * c, Y - L / 2 * sn), b = inLin(X + L / 2 * c, Y + L / 2 * sn), f = out / (N + 1);
+    if (!(a || b) || f > 1 / 6 || f < .07) continue;
+    const sc = Math.abs(f - .13) + Math.abs(r - (side < 0 ? -10 : 9) - (h - .5) * 8) * .004 + Math.abs(cx - 50 - (h - .5) * 10) * .003;
+    if (!best || sc < best[0]) best = [sc, cx, cy, r];
+  }
+  return best ? best.slice(1) : null;
+}
 // 필통 속: 산 도구들을 실물 크기 비율로 눕혀 놓는다(그림 너비 900px = 약 337mm 기준)
 const CASE_PXMM = 100 / 337, caseHash = k => { let h = 7; for (const c of k) h = (h * 31 + c.charCodeAt(0)) % 9973; return h / 9973; };
 function renderCaseInside(){
@@ -3513,8 +3529,7 @@ function renderCaseInside(){
   ins.forEach((k, i) => { const slot = i === 0 ? 0 : (i % 2 ? 1 : -1) * Math.ceil(i / 2), h = caseHash(k), h2 = caseHash(k + '~');
     const ang = i === 0 ? (h - .5) * 4 : (h - .5) * 20 - slot * 1.5;
     put(k, 49 + (h2 - .5) * 10, 40 + slot * gap, ang); });
-  const OUT = [[46, 24, -11], [60, 58, 9]];
-  outs.forEach((k, i) => { const [x, y, r] = OUT[i]; put(k, x, y, r + (caseHash(k) - .5) * 3, top); });
+  outs.forEach((k, i) => { const p = outPlace(k, i ? 1 : -1); if (p) put(k, p[0], p[1], p[2], top); else put(k, 49, 40, 0); });
   const spots = [[39, 47, 16], [62, 39, -20], [48, 53, -8], [56, 30, 24], [35, 39, -26], [66, 43, 11]];   // 지우개류는 양 끝 쪽에, 제각각 돌려서
   shorts.forEach((k, i) => { const [x, y, r] = spots[i % spots.length]; put(k, x, y, r + (caseHash(k) - .5) * 14); });
   const cnt = longs.length + shorts.length;
