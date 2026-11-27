@@ -474,7 +474,7 @@
   /* 옛글 선반: 책가도(冊架圖)처럼 나무 선반 위에 책과 편지를 세워 둔다 */
   #stageExtra{display:block!important;margin-top:22px} #stageExtra[hidden]{display:none!important}
   #stageExtra .xh{display:flex;align-items:center;gap:12px;margin:0 0 6px -10px;font-family:"Nanum Myeongjo","Noto Serif KR",serif;color:#3f3a32} #stageExtra .xh b{font-size:19px;font-weight:700}   /* 위 「어떤 급수를 연습할까요?」와 같은 글꼴 */ #stageExtra .xh i{flex:1;height:1px;background:linear-gradient(90deg,rgba(120,90,60,.45),transparent)}
-  #stageExtra .shelf{position:relative;display:flex;align-items:flex-end;gap:38px;padding:10px 34px 0;width:100%;box-sizing:border-box;overflow:hidden}
+  #stageExtra .shelf{position:relative;display:flex;align-items:flex-end;gap:38px;padding:10px 34px 0;width:100%;box-sizing:border-box;overflow-x:clip;overflow-y:visible}
   #stageExtra .shelf::before{content:"";position:absolute;left:0;right:0;bottom:30px;height:11px;border-radius:2px;background:linear-gradient(180deg,#c69a68 0,#a8784c 25%,#8a5e38 70%,#6e4828 100%);box-shadow:0 1px 0 rgba(255,230,190,.35) inset,0 6px 8px -3px rgba(60,35,15,.45)}
   #stageExtra .shelf::after{content:"";position:absolute;left:0;right:0;bottom:30px;height:11px;border-radius:2px;background:repeating-linear-gradient(90deg,transparent 0 37px,rgba(70,40,20,.12) 37px 39px,transparent 39px 83px);mix-blend-mode:multiply;pointer-events:none}
   /* 아직 나오지 않은 책: 요즘 양장본, 크기만 제각각. 그림자 속에 있는 듯 흐리고 어둡게 */
