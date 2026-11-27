@@ -98,6 +98,8 @@
   .lbl{position:absolute;transform:translateX(-50%);pointer-events:none;cursor:pointer;color:#7d766a;font-weight:600;line-height:1.2;
     padding:1px 7px;border-radius:7px;background:rgba(255,255,255,.55);box-shadow:0 0 0 1px rgba(60,45,20,.08)}
   .lbl.low{color:#b8902a}
+  body.neatAsk .lbl.low{color:#c8322a;font-weight:800;animation:askPulse .7s ease-in-out 3}
+  @keyframes askPulse{50%{transform:translateX(-50%) scale(1.35)}}
   .lbl.fixed{color:#2f2b25;box-shadow:0 0 0 1.5px rgba(232,185,58,.8)}
   #rowMark{position:absolute;display:none;width:0;height:0;border-left:11px solid var(--pencil);border-top:7px solid transparent;border-bottom:7px solid transparent;margin-left:-6px;pointer-events:none}
   .ctl{display:none;align-items:center;gap:2px;padding:0 4px;border-left:1px solid var(--line)}
@@ -419,6 +421,7 @@
   .cs-open.done img.o,.cs-open.done img.c{transition:none}
   .zipglint{position:absolute;top:30%;bottom:30%;left:20%;width:3%;border-radius:40%;background:radial-gradient(closest-side,rgba(255,240,200,.55),transparent);opacity:0;pointer-events:none}
   .cs-open.zip .zipglint{animation:glint .9s cubic-bezier(.45,.05,.3,1)}
+  .cs-open.done .zipglint{animation:none;display:none}   /* 지퍼는 홈에서 열었으니 여기선 반짝임도 없이 이미 열린 채로 */
   @keyframes glint{0%{left:20%;opacity:.9}90%{opacity:.6}100%{left:78%;opacity:0}}
   /* 산 도구는 열린 필통 안에 처음부터 누워 있다: 지퍼가 열리면 함께 드러나고, 양 끝은 천 밑으로 들어간다 */
   .cs-in{position:absolute;inset:0;clip-path:inset(0 100% 0 0);pointer-events:none} .cs-wrap header{position:relative;z-index:3}
@@ -3830,6 +3833,18 @@ async function grade(){
       for (let i = 0; i < b.pages.length; i++) if (i !== b.cur) all.push(...await readPage(i)); all.push(...await readPage(b.cur)); }
     else { await flushRecognition(); all.push(...pageRes(0)); }
   } finally { grading = false; sheet.classList.remove('grading'); }
+  // '또박또박한 글씨만'에서 못 읽은 칸('?')이 있으면 채점하지 않고 그 장을 펴서 다시 쓰게 한다
+  if (b && store.get('neat', 0)) {
+    let bad = -1;
+    for (let i = 0; i < b.pages.length && bad < 0; i++) { const L = i === b.cur ? labels : b.pages[i].labels; if (!L) continue;
+      for (const [k, v] of L) { if (v.ch !== '?') continue; const [r, c] = k.split(',').map(Number), it = b.pages[i].items[r];
+        if (it && cellT(it[0])[c] !== '?') { bad = i; break; } } }
+    if (bad >= 0) {
+      if (bad !== b.cur) { b.cur = bad; showPage(); }
+      document.body.classList.add('neatAsk'); clearTimeout(grade.t); grade.t = setTimeout(() => document.body.classList.remove('neatAsk'), 4000);
+      toast('알아보기 어려운 글자가 있어요. 빨간 ? 칸을 지우고 또박또박 다시 써 볼까요?'); return;
+    }
+  }
   if (b) { const pg = b.pages[b.cur]; D.items = pg.items; D.off = b.cur * D.ps; }
   D.graded = true; positionRowMark();
   const st = D.stage, res = all.sort((a, c) => a.r - c.r);
