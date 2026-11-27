@@ -1,6 +1,6 @@
 // 한 번 열면 이 기기에 통째로 저장해 두고, 그다음부터는 인터넷 없이 연다.
 // 새 판을 올릴 때는 VERSION 숫자만 바꾸면 기기가 알아서 새 판으로 바꾼다.
-const VERSION = 'sseugi-v0.2-100';
+const VERSION = 'sseugi-v0.2-101';
 const AUDIO = 'sseugi-audio';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))); self.skipWaiting(); });
