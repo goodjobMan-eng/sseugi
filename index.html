@@ -283,6 +283,11 @@ Attribution is a condition of the CC BY-NC 4.0 license; if asked to remove it, e
   @media (hover:hover) and (pointer:fine){ .stage:hover{background:#fbf3dc} } .stage.blank,.stage.blank:hover{background:#fffdf6} .stage.blank{-webkit-touch-callout:none;user-select:none;touch-action:none}
   .stage.rec{background:#f9eccb} .stage.rec::after{content:"";position:absolute;left:24%;right:24%;bottom:12%;height:2.5px;border-radius:2px;background:#e8b93a}
   #home .stage .ok{position:absolute;left:12%;top:12%;width:76%;height:76%;pointer-events:none}
+  #stageList .stage span{position:relative;transform:translateY(-9%)} #home .stage .ok{left:20%!important;top:9%!important;width:60%!important;height:60%!important}
+  .stage.rec:has(.sc)::after{display:none}
+  .stage .sc{position:absolute;left:0;right:0;bottom:7%;font:600 11px Pretendard,system-ui,sans-serif;color:#9a5a3a;letter-spacing:-.02em;pointer-events:none}
+  .stage .stp{position:absolute;right:6%;top:6%;width:30%;aspect-ratio:1;display:block;opacity:.92;transform:rotate(-12deg);pointer-events:none} .stage .stp::before{width:100%;height:100%;background-size:contain;display:block}
+  #stageList[data-mode=copy] .sc,#stageList[data-mode=copy] .stp,#stageList[data-mode=copy] .fill,#stageList[data-mode=copy] .ok{display:none}
   .stage .fill{position:absolute;left:0;bottom:0;right:0;background:rgba(106,163,90,.13);pointer-events:none}
   #weak{font-size:13.5px;color:var(--ink-soft)} #weak span{display:inline-block;margin:2px 6px 2px 0;padding:3px 9px;border-radius:999px;background:#fbe9e5;color:#a8412f}
   #pouch{display:flex;justify-content:center;gap:26px;margin-top:auto;color:var(--ink-soft);font-size:14px;font-variant-numeric:tabular-nums}
@@ -365,9 +370,13 @@ Attribution is a condition of the CC BY-NC 4.0 license; if asked to remove it, e
   .c-free .plate{left:32.38%!important;width:33.10%!important;top:21.62%!important;height:13.86%!important}
   .cover .plate{right:auto!important;padding:0!important;margin:0!important;background:none!important;box-shadow:none!important;display:flex;align-items:center;justify-content:center}
   .cover .plate b{font-size:6cqw!important;font-weight:700;color:#3a342b;letter-spacing:-.01em;white-space:nowrap}
+  /* 이름표를 사진 위에 새로 붙인다: 세 권 모두 같은 자리·같은 크기, 글씨는 더 크게(휴대폰에서도 12px 이상) */
+  .cover .plate{left:19%!important;width:66%!important;top:16.5%!important;height:21.5%!important;background:#f6efdf!important;border-radius:2px!important;
+    box-shadow:0 1px 1.5px rgba(60,40,20,.28),inset 0 0 0 1px rgba(120,95,60,.12)!important}
+  .cover .plate b{font-size:max(12px,9.5cqw)!important}
   .covers{gap:34px!important}
   @media (min-width:761px){ .covers{max-width:800px!important} }
-  @media (max-width:760px){ .covers{gap:14px!important} .cover .plate b{font-size:6cqw!important} }
+  @media (max-width:760px){ .covers{gap:14px!important} .cover .plate b{font-size:max(12px,9.5cqw)!important} }
 
   /* 펼친 안쪽: 표지 뒷면은 무늬 없는 한 색, 첫 장은 공책 종류대로(원고지 · 받아쓰기 칸 · 무지) */
   .cover .in{background:#f2ece0!important;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)!important}
@@ -797,11 +806,12 @@ const FREE_MODES = ['notebook', 'manuscript', 'lined', 'vmanu', 'blank'];  // �
 function computeLayout(){
   const vw = desk.clientWidth, vh = desk.clientHeight;
   const pad = vw < 700 ? 8 : 18;
-  const W = vw - pad * 2, H = vh - pad * 2;
+  const padB = app.layout && app.layout.rows ? 50 : 0;   // 받아쓰기·따라 쓰기: 아래 장 넘김 단추 자리
+  const W = vw - pad * 2, H = vh - pad * 2 - padB;
   const nb = baseOf(state.mode) === 'notebook';
-  const m = clamp(Math.min(W, H) * .045, nb ? 30 : 22, 44);
+  const m = clamp(Math.min(W, H) * .045, nb ? 30 : 22, 44);   // 종이 테두리 여유: 장 넘기기·찢기 손잡이 자리라 줄이지 않는다
   const headH = (nb ? 40 : 22) + (app.screen === 'dict' ? 24 : 0), footH = 24;
-  const gap = nb ? .32 : .40;
+  let gap = nb ? .32 : .40;
   const innerW = W - 2 * m, innerH = H - 2 * m - headH - footH;
   // 칸 크기는 사용자가 고른다. 한 줄에 들어가는 칸 수는 화면 폭에 맞춰 정해지고, 원고지는 최대 20칸.
   const R = SIZE_RANGE[baseOf(state.mode)];
@@ -812,7 +822,9 @@ function computeLayout(){
   if (AL && AL.minCols) cols = Math.max(cols, AL.minCols);
   s = Math.min(s, innerW / cols);
   let rows;
-  if (AL && AL.rows) { rows = AL.rows; s = Math.min(s, innerH / (rows + (rows - 1) * gap)); }
+  if (AL && AL.rows) { rows = AL.rows; s = Math.min(s, innerH / (rows + (rows - 1) * gap));
+    if (rows > 1) { const extra = innerH - (rows * s + (rows - 1) * gap * s); if (extra > 0) gap = Math.min(nb ? .7 : .6, gap + extra / ((rows - 1) * s)); }   // 남는 세로 공간은 줄 사이로(공책이 화면을 채움)
+  }
   else {
     rows = Math.floor((innerH + gap * s) / (s * (1 + gap)));
     if (rows < 2) { rows = 2; s = Math.min(s, innerH / (2 + gap)); }
@@ -825,7 +837,7 @@ function computeLayout(){
   L.w = Math.round(L.gridW + 2 * m);
   L.h = Math.round(L.gridH + 2 * m + headH + footH);
   L.left = Math.round((vw - L.w) / 2);
-  L.top = Math.round((vh - L.h) / 2);
+  L.top = Math.round((vh - padB - L.h) / 2);
   L.penR = clamp(.75 + s * .012, 1.2, 2.1);   // 연필 반지름(화면 px): 칸이 클수록 조금 굵게
   L.eraserR = clamp(s * .095, 5.5, 11);
 }
@@ -4561,7 +4573,7 @@ function renderHome(){
   for (const st of STAGES) {   // 원고지 한 칸 = 한 단계. 잘하면 빨간 동그라미, 해 본 만큼 칸이 연두로 차오른다
     const s = rec.stats[st.id], pct = s ? Math.round(s.ok / s.n * 100) : null;
     const b = document.createElement('button'); b.className = 'stage' + (st === pick ? ' rec' : ''); b.title = st.title + (pct === null ? '' : ` · ${pct}%`);
-    b.innerHTML = (pct !== null ? `<i class="fill" style="height:${pct}%"></i>` : '') + `<span>${st.id}</span>`
+    b.innerHTML = (pct !== null ? `<i class="fill" style="height:${pct}%"></i>` : '') + `<span>${st.id}</span>` + (pct !== null ? `<small class="sc">${pct}점</small>` : '')
       + (pct !== null && pct >= 80 ? `<svg class="ok" viewBox="0 0 40 40"><path d="M21 4.5c9 .5 15 7 14.5 15.5S27 35.5 19 35.5 4.5 29 5 19.5 12.5 4 22 5.5" fill="none" stroke="#d2402f" stroke-width="2.2" stroke-linecap="round" opacity=".85" transform="rotate(${(st.id * 37) % 40 - 20} 20 20)"/></svg>` : '');
     b.onclick = () => { const m = stageMode; closeStages(); if (m === 'copy') startCopy(st, 0); else startDictation(st); };
     b.onpointerenter = () => { cap.textContent = capOf(st); }; b.onpointerleave = () => { cap.textContent = capOf(pick); };
@@ -4668,7 +4680,7 @@ for (const cv of document.querySelectorAll('.cover')) cv.addEventListener('click
 // 단계 고르기 장: 받아쓰기('dict') 또는 문장 따라 쓰기 연습('copy')
 let stageMode = 'dict';
 function openStages(mode = 'dict'){
-  stageMode = mode; $('#stageHead').textContent = mode === 'copy' ? '어떤 급수를 연습할까요?' : '받아쓰기';
+  stageMode = mode; $('#stageList').dataset.mode = mode; $('#stageHead').textContent = mode === 'copy' ? '어떤 급수를 연습할까요?' : '받아쓰기';
   $('#stageExtra').hidden = mode !== 'copy';
   $('#stagePage').classList.add('show');
 }
