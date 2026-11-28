@@ -4256,6 +4256,20 @@ function copyFill(){
   (app.copyItems || []).forEach((t, k) => [...t].forEach((ch, c) => { if (ch === ' ' || c >= L.cols) return; n++; if (binarize(cellAlpha(k * 2 + 1, c))) w++; }));
   return n ? w / n : 0;
 }
+// 따라 쓰기: 낙서로 칸만 채우면 넘어가지 않게, 쓴 칸이 그 글자로 읽히는지 너그럽게 본다(상위 8개 안이거나 확률이 조금이라도 있으면 통과)
+async function copyLegible(){
+  if (!HN.ready()) return 1;
+  let n = 0, ok = 0;
+  const jobs = [];
+  (app.copyItems || []).forEach((t, k) => [...t].forEach((ch, c) => {
+    if (ch === ' ' || c >= L.cols || PUNCT.includes(ch)) return;
+    const al = cellAlpha(k * 2 + 1, c); if (!binarize(al)) return;
+    jobs.push(HNW.predict(al, RN).then(P => { if (!P) return; n++;
+      const vs = variants(ch); if (vs.some(v => HNW.prob(P, v) > .01) || HNW.top(P, 8).some(x => vs.includes(x[0]))) ok++; }));
+  }));
+  await Promise.all(jobs);
+  return n ? ok / n : 1;
+}
 function startQuick(){
   app.copy = false; delete document.body.dataset.copy; Book.copy = null;
   closeResult(); setScreen('quick');
@@ -4337,8 +4351,11 @@ $('#cpStage').addEventListener('click', () => { goHome(); openStages('copy'); })
 $('#qDone').addEventListener('click', () => {
   if (app.copy) {   // 따라 쓰기 연습: 아랫줄을 거의 다 채워야 다음 문장으로
     if (copyFill() < .85) { toast('윗줄 글자를 보고 아랫줄에 다 따라 써 볼까요?'); return; }
-    stamps.add(1, '한 장을 다 썼어요!');
-    copyGo('next', true);
+    copyLegible().then(okp => {
+      if (okp < .6) { toast('낙서 말고, 윗줄 글자를 보고 또박또박 따라 써 볼까요?'); return; }
+      stamps.add(1, '한 장을 다 썼어요!');
+      copyGo('next', true);
+    });
     return;
   }
   let nSyl = 0, wrote = 0; const got = new Set();
